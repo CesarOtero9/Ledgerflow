@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% if modo == "nuevo" %}
+    {% set titulo = "Nuevo rubro" %}
+    {% set subtitulo = "Registra un nuevo rubro principal" %}
+{% else %}
+    {% set titulo = "Editar rubro" %}
+    {% set subtitulo = "Actualiza la información del rubro" %}
+{% endif %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+{% block page_subtitle %}{{ subtitulo }}{% endblock %}
+
+{% block content %}
+
+<div class="panel">
+    <form method="POST">
+
+        <div class="form-section-title">
+            <h3>Datos del rubro</h3>
+            <p>Este catálogo se usará para clasificar los registros principales.</p>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-5">
+                <label class="form-label">Nombre del rubro *</label>
+                <input type="text"
+                       name="name"
+                       class="form-control"
+                       value="{{ rubro.name if rubro else '' }}"
+                       required>
+            </div>
+
+            <div class="col-md-7">
+                <label class="form-label">Descripción</label>
+                <textarea name="description"
+                          class="form-control"
+                          rows="3">{{ rubro.description if rubro else '' }}</textarea>
+            </div>
+
+            {% if modo == "editar" %}
+                <div class="col-md-12">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="is_active"
+                               id="is_active"
+                               {% if rubro.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="is_active">
+                            Rubro activo
+                        </label>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-actions mt-4">
+            <a href="{{ url_for('rubros.index') }}" class="btn btn-outline-secondary">
+                Cancelar
+            </a>
+
+            <button type="submit" class="btn btn-success">
+                Guardar rubro
+            </button>
+        </div>
+
+    </form>
+</div>
+
+{% endblock %}

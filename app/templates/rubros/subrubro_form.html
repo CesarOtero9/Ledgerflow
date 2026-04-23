@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% if modo == "nuevo" %}
+    {% set titulo = "Nuevo subrubro" %}
+    {% set subtitulo = "Registra un subrubro para " ~ rubro.name %}
+{% else %}
+    {% set titulo = "Editar subrubro" %}
+    {% set subtitulo = "Actualiza el subrubro de " ~ rubro.name %}
+{% endif %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+{% block page_subtitle %}{{ subtitulo }}{% endblock %}
+
+{% block content %}
+
+<div class="panel">
+    <form method="POST">
+
+        <div class="form-section-title">
+            <h3>{{ rubro.name }}</h3>
+            <p>Los subrubros ayudan a clasificar con mayor detalle cada registro y controlar presupuesto.</p>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Nombre del subrubro *</label>
+                <input type="text"
+                       name="name"
+                       class="form-control"
+                       value="{{ subrubro.name if subrubro else '' }}"
+                       required>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Presupuesto asignado</label>
+                <input type="text"
+                       name="budget_amount"
+                       id="budget_amount"
+                       class="form-control"
+                       placeholder="$0.00"
+                       value="{% if subrubro %}${{ '{:,.2f}'.format(subrubro.budget_amount) }}{% endif %}">
+                <small class="text-muted">
+                    Monto presupuestado para este subrubro.
+                </small>
+            </div>
+
+            <div class="col-md-8">
+                <label class="form-label">Descripción</label>
+                <textarea name="description"
+                          class="form-control"
+                          rows="3">{{ subrubro.description if subrubro else '' }}</textarea>
+            </div>
+
+            {% if modo == "editar" %}
+                <div class="col-md-12">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="is_active"
+                               id="is_active"
+                               {% if subrubro.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="is_active">
+                            Subrubro activo
+                        </label>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-actions mt-4">
+            <a href="{{ url_for('rubros.subrubros', rubro_id=rubro.id) }}" class="btn btn-outline-secondary">
+                Cancelar
+            </a>
+
+            <button type="submit" class="btn btn-success">
+                Guardar subrubro
+            </button>
+        </div>
+
+    </form>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const budgetInput = document.getElementById("budget_amount");
+
+        if (!budgetInput) {
+            return;
+        }
+
+        budgetInput.addEventListener("blur", function () {
+            let value = budgetInput.value;
+
+            value = value.replace("$", "")
+                .replaceAll(",", "")
+                .replace("MXN", "")
+                .trim();
+
+            if (value === "") {
+                budgetInput.value = "";
+                return;
+            }
+
+            const numberValue = Number(value);
+
+            if (isNaN(numberValue)) {
+                return;
+            }
+
+            budgetInput.value = numberValue.toLocaleString("es-MX", {
+                style: "currency",
+                currency: "MXN"
+            });
+        });
+    });
+</script>
+
+{% endblock %}

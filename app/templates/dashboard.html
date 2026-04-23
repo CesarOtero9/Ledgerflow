@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Control presupuestal, filtros dinámicos y visualizaciones ejecutivas{% endblock %}
+
+{% block content %}
+
+<div class="dashboard-hero">
+    <div>
+        <span class="eyebrow">LedgerFlow Analytics</span>
+        <h3>Centro de control presupuestal</h3>
+        <p>
+            Filtra por periodo, rubro, subrubro o proveedor para revisar presupuesto, pagos y porcentaje cubierto.
+        </p>
+    </div>
+
+    <div class="hero-glow-card">
+        <span>Porcentaje cubierto</span>
+        <strong>{{ budget_summary.percentage }}%</strong>
+        <small>{{ budget_summary.status_label }}</small>
+    </div>
+</div>
+
+<div class="panel mt-4 dashboard-filter-panel">
+    <form method="GET" action="{{ url_for('main.dashboard') }}">
+        <div class="filter-grid">
+            <div>
+                <label class="form-label">Año</label>
+                <select name="year" class="form-select select2-field">
+                    <option value="">Todos</option>
+                    {% for year in available_years %}
+                        <option value="{{ year }}" {% if filters.year == year %}selected{% endif %}>
+                            {{ year }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Mes</label>
+                <select name="month" class="form-select select2-field">
+                    <option value="">Todos</option>
+                    {% for number, name in months.items() %}
+                        <option value="{{ number }}" {% if filters.month == number %}selected{% endif %}>
+                            {{ name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Rubro</label>
+                <select name="category_id" class="form-select select2-field">
+                    <option value="">Todos</option>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}" {% if filters.category_id == category.id %}selected{% endif %}>
+                            {{ category.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Subrubro</label>
+                <select name="subcategory_id" class="form-select select2-field">
+                    <option value="">Todos</option>
+                    {% for subcategory in subcategories %}
+                        <option value="{{ subcategory.id }}" {% if filters.subcategory_id == subcategory.id %}selected{% endif %}>
+                            {{ subcategory.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Proveedor</label>
+                <select name="supplier_id" class="form-select select2-field">
+                    <option value="">Todos</option>
+                    {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if filters.supplier_id == supplier.id %}selected{% endif %}>
+                            {{ supplier.business_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-success w-100">
+                    <i class="fa-solid fa-filter"></i>
+                    Aplicar
+                </button>
+
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary w-100">
+                    Limpiar
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="budget-health-card mt-4 {{ budget_summary.status_class }}">
+    <div>
+        <span class="eyebrow">Budget Health</span>
+        <h3>{{ budget_summary.status_label }}</h3>
+        <p>{{ budget_summary.status_message }}</p>
+    </div>
+
+    <div class="budget-health-progress">
+        <strong>{{ budget_summary.percentage }}%</strong>
+        <div class="budget-progress">
+            <div class="budget-progress-fill {{ budget_summary.status_class }}"
+                 style="width: {% if budget_summary.percentage > 100 %}100{% else %}{{ budget_summary.percentage }}{% endif %}%;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="cards-grid mt-4">
+    <div class="metric-card premium">
+        <span>Presupuesto</span>
+        <strong>${{ "{:,.2f}".format(budget_summary.total_budget) }}</strong>
+        <small>Subrubros seleccionados</small>
+    </div>
+
+    <div class="metric-card premium">
+        <span>Pagado</span>
+        <strong>${{ "{:,.2f}".format(budget_summary.total_paid) }}</strong>
+        <small>Registros filtrados</small>
+    </div>
+
+    <div class="metric-card premium">
+        <span>Pendiente</span>
+        {% if budget_summary.total_remaining < 0 %}
+            <strong class="text-danger">-${{ "{:,.2f}".format(budget_summary.total_remaining * -1) }}</strong>
+            <small>Presupuesto excedido</small>
+        {% else %}
+            <strong>${{ "{:,.2f}".format(budget_summary.total_remaining) }}</strong>
+            <small>Saldo presupuestal</small>
+        {% endif %}
+    </div>
+
+    <div class="metric-card premium">
+        <span>Registros</span>
+        <strong>{{ total_entries }}</strong>
+        <small>Operaciones filtradas</small>
+    </div>
+</div>
+
+<div class="dashboard-grid mt-4">
+    <div class="chart-panel">
+        <div class="chart-title">
+            <div>
+                <h4>Medidor de presupuesto cubierto</h4>
+                <p>Porcentaje pagado contra presupuesto disponible.</p>
+            </div>
+        </div>
+
+        <div id="budgetGaugeChart" class="chart-box chart-box-sm"></div>
+    </div>
+
+    <div class="chart-panel">
+        <div class="chart-title">
+            <div>
+                <h4>Presupuesto vs pagado</h4>
+                <p>Comparativo general según filtros activos.</p>
+            </div>
+        </div>
+
+        <div id="budgetComparisonChart" class="chart-box chart-box-sm"></div>
+    </div>
+</div>
+
+<div class="chart-panel mt-4">
+    <div class="chart-title">
+        <div>
+            <h4>Avance por subrubro</h4>
+            <p>Presupuesto, pagado y porcentaje cubierto de cada subrubro.</p>
+        </div>
+    </div>
+
+    <div id="subcategoryBudgetChart" class="chart-box chart-box-sm"></div>
+</div>
+
+<div class="dashboard-grid mt-4">
+    <div class="chart-panel chart-panel-wide">
+        <div class="chart-title">
+            <div>
+                <h4>Mapa 3D: Mes + Rubro + Monto</h4>
+                <p>Identifica picos de gasto por rubro y periodo.</p>
+            </div>
+        </div>
+
+        <div id="surface3dChart" class="chart-box chart-box-lg"></div>
+    </div>
+
+    <div class="chart-panel">
+        <div class="chart-title">
+            <div>
+                <h4>Proveedores 3D</h4>
+                <p>Operaciones, monto total y promedio.</p>
+            </div>
+        </div>
+
+        <div id="supplier3dChart" class="chart-box chart-box-md"></div>
+    </div>
+</div>
+
+<div class="dashboard-grid mt-4">
+    <div class="chart-panel">
+        <div class="chart-title">
+            <div>
+                <h4>Total por mes</h4>
+                <p>Tendencia mensual de registros filtrados.</p>
+            </div>
+        </div>
+
+        <div id="monthlyChart" class="chart-box chart-box-sm"></div>
+    </div>
+
+    <div class="chart-panel">
+        <div class="chart-title">
+            <div>
+                <h4>Total por rubro</h4>
+                <p>Distribución del gasto según filtros.</p>
+            </div>
+        </div>
+
+        <div id="categoryChart" class="chart-box chart-box-sm"></div>
+    </div>
+</div>
+
+<div class="panel mt-4">
+    <div class="table-panel-header">
+        <div>
+            <h3>Detalle presupuestal por subrubro</h3>
+            <p>Avance de pagos contra presupuesto asignado.</p>
+        </div>
+    </div>
+
+    <div class="table-responsive mt-3">
+        <table class="table align-middle custom-table">
+            <thead>
+                <tr>
+                    <th>Rubro</th>
+                    <th>Subrubro</th>
+                    <th class="text-end">Presupuesto</th>
+                    <th class="text-end">Pagado</th>
+                    <th class="text-end">Pendiente</th>
+                    <th>Avance</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for item in subcategory_breakdown %}
+                    <tr>
+                        <td>{{ item.category_name }}</td>
+                        <td><strong>{{ item.subcategory_name }}</strong></td>
+
+                        <td class="text-end">
+                            <strong>${{ "{:,.2f}".format(item.budget) }}</strong>
+                        </td>
+
+                        <td class="text-end">
+                            <strong>${{ "{:,.2f}".format(item.paid) }}</strong>
+                        </td>
+
+                        <td class="text-end">
+                            {% if item.remaining < 0 %}
+                                <strong class="text-danger">-${{ "{:,.2f}".format(item.remaining * -1) }}</strong>
+                            {% else %}
+                                <strong>${{ "{:,.2f}".format(item.remaining) }}</strong>
+                            {% endif %}
+                        </td>
+
+                        <td style="min-width: 180px;">
+                            <div class="budget-progress-wrap">
+                                <div class="budget-progress-info">
+                                    <span>{{ item.percentage }}%</span>
+                                </div>
+
+                                <div class="budget-progress">
+                                    <div class="budget-progress-fill {{ item.status_class }}"
+                                         style="width: {% if item.percentage > 100 %}100{% else %}{{ item.percentage }}{% endif %}%;">
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td>
+                            <span class="status-pill {{ item.status_class }}">
+                                {{ item.status_label }}
+                            </span>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            No hay subrubros con presupuesto para los filtros seleccionados.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="panel mt-4">
+    <div class="table-panel-header">
+        <div>
+            <h3>Últimos registros filtrados</h3>
+            <p>Movimientos recientes incluidos en la vista actual.</p>
+        </div>
+
+        <a href="{{ url_for('registros.index') }}" class="btn btn-outline-primary btn-sm">
+            Ver todos
+        </a>
+    </div>
+
+    <div class="table-responsive mt-3">
+        <table class="table align-middle custom-table">
+            <thead>
+                <tr>
+                    <th>Clave</th>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th>Rubro</th>
+                    <th class="text-end">Monto</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for registro in latest_entries %}
+                    <tr>
+                        <td>
+                            <strong>{{ registro.unique_key }}</strong>
+                        </td>
+                        <td>{{ registro.application_date.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ registro.supplier.business_name }}</td>
+                        <td>{{ registro.category.name }}</td>
+                        <td class="text-end">
+                            <strong>${{ "{:,.2f}".format(registro.amount) }}</strong>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-5">
+                            No hay registros para los filtros seleccionados.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    window.dashboardData = {
+        monthlyChart: {{ monthly_chart | tojson }},
+        categoryChart: {{ category_chart | tojson }},
+        supplier3dChart: {{ supplier_3d_chart | tojson }},
+        surface3dChart: {{ surface_3d_chart | tojson }},
+        subcategoryBudgetChart: {{ subcategory_budget_chart | tojson }},
+        budgetSummary: {{ budget_summary | tojson }}
+    };
+</script>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+
+{% endblock %}

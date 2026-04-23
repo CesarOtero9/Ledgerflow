@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% if modo == "nuevo" %}
+    {% set titulo = "Nuevo proveedor" %}
+    {% set subtitulo = "Registra un proveedor manualmente o desde constancia fiscal" %}
+{% else %}
+    {% set titulo = "Editar proveedor" %}
+    {% set subtitulo = "Actualiza los datos del proveedor o carga una nueva constancia" %}
+{% endif %}
+
+{% set source = extracted_data if extracted_data else {} %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+{% block page_subtitle %}{{ subtitulo }}{% endblock %}
+
+{% block content %}
+
+<div class="panel mb-4">
+    <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="extract">
+
+        <div class="form-section-title">
+            <h3>Cargar constancia fiscal</h3>
+            <p>Sube un PDF del SAT para extraer RFC, razón social, régimen fiscal y domicilio.</p>
+        </div>
+
+        <div class="upload-strip">
+            <div class="upload-box">
+                <label class="form-label">Constancia fiscal PDF</label>
+                <input type="file"
+                       name="constancia_pdf"
+                       class="form-control"
+                       accept="application/pdf">
+                <small class="text-muted">Formato permitido: PDF.</small>
+            </div>
+
+            <button type="submit" class="btn btn-success">
+                Extraer datos del PDF
+            </button>
+        </div>
+    </form>
+</div>
+
+{% if extracted_data %}
+    <div class="extraction-card mb-4">
+        <div>
+            <span class="eyebrow">Datos detectados</span>
+            <h3>{{ source.get("business_name", "Proveedor detectado") }}</h3>
+            <p>
+                RFC: <strong>{{ source.get("rfc", "N/A") }}</strong>
+                · Tipo: <strong>{{ source.get("person_type", "N/A") }}</strong>
+            </p>
+        </div>
+
+        <div class="extraction-grid">
+            <div>
+                <span>Régimen</span>
+                <strong>{{ source.get("tax_regime", "N/A") }}</strong>
+            </div>
+
+            <div>
+                <span>Código postal</span>
+                <strong>{{ source.get("fiscal_zip_code", "N/A") }}</strong>
+            </div>
+
+            <div>
+                <span>Estatus padrón</span>
+                <strong>{{ source.get("estatus_padron", "N/A") }}</strong>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<div class="panel">
+    <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="save">
+
+        {% if extracted_data and extracted_data.get("pending_file") %}
+            <input type="hidden" name="pending_file_path" value="{{ extracted_data.pending_file.file_path }}">
+            <input type="hidden" name="pending_original_filename" value="{{ extracted_data.pending_file.original_filename }}">
+            <input type="hidden" name="pending_stored_filename" value="{{ extracted_data.pending_file.stored_filename }}">
+            <input type="hidden" name="pending_file_extension" value="{{ extracted_data.pending_file.file_extension }}">
+            <input type="hidden" name="pending_file_size_kb" value="{{ extracted_data.pending_file.file_size_kb }}">
+        {% endif %}
+
+        <div class="form-section-title">
+            <h3>Datos fiscales</h3>
+            <p>Revisa y ajusta la información antes de guardar.</p>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">RFC *</label>
+                <input type="text"
+                       name="rfc"
+                       maxlength="13"
+                       class="form-control"
+                       value="{{ source.get('rfc') or (proveedor.rfc if proveedor else '') }}"
+                       required>
+            </div>
+
+            <div class="col-md-8">
+                <label class="form-label">Razón social / Nombre *</label>
+                <input type="text"
+                       name="business_name"
+                       class="form-control"
+                       value="{{ source.get('business_name') or (proveedor.business_name if proveedor else '') }}"
+                       required>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Código de régimen fiscal</label>
+                <input type="text"
+                       name="tax_regime_code"
+                       class="form-control"
+                       placeholder="Ej. 612"
+                       value="{{ source.get('tax_regime_code') or (proveedor.tax_regime_code if proveedor else '') }}">
+            </div>
+
+            <div class="col-md-8">
+                <label class="form-label">Régimen fiscal</label>
+                <input type="text"
+                       name="tax_regime"
+                       class="form-control"
+                       placeholder="Ej. Personas Físicas con Actividades Empresariales..."
+                       value="{{ source.get('tax_regime') or (proveedor.tax_regime if proveedor else '') }}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Código postal fiscal</label>
+                <input type="text"
+                       name="fiscal_zip_code"
+                       class="form-control"
+                       value="{{ source.get('fiscal_zip_code') or (proveedor.fiscal_zip_code if proveedor else '') }}">
+            </div>
+
+            <div class="col-md-8">
+                <label class="form-label">Domicilio fiscal</label>
+                <textarea name="fiscal_address"
+                          class="form-control"
+                          rows="3">{{ source.get('fiscal_address') or (proveedor.fiscal_address if proveedor else '') }}</textarea>
+            </div>
+
+            <div class="col-md-12">
+                <label class="form-label">Adjuntar constancia manualmente</label>
+                <input type="file"
+                       name="constancia_pdf"
+                       class="form-control"
+                       accept="application/pdf">
+                <small class="text-muted">
+                    Opcional. Úsalo si quieres guardar el PDF sin extraer datos nuevamente.
+                </small>
+            </div>
+
+            {% if modo == "editar" %}
+                <div class="col-md-12">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="is_active"
+                               id="is_active"
+                               {% if proveedor.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="is_active">
+                            Proveedor activo
+                        </label>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="form-actions mt-4">
+            <a href="{{ url_for('proveedores.index') }}" class="btn btn-outline-secondary">
+                Cancelar
+            </a>
+
+            <button type="submit" class="btn btn-success">
+                Guardar proveedor
+            </button>
+        </div>
+
+    </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block page_title %}Registros{% endblock %}
+{% block page_subtitle %}Captura y consulta de movimientos registrados{% endblock %}
+
+{% block content %}
+
+<div class="module-header">
+    <div>
+        <h3>Registros capturados</h3>
+        <p>Consulta las operaciones registradas por fecha, proveedor, rubro y monto.</p>
+    </div>
+
+    <a href="{{ url_for('registros.nuevo') }}" class="btn btn-success">
+        + Nuevo registro
+    </a>
+</div>
+
+<div class="panel mt-4">
+    <div class="table-responsive">
+        <table class="table align-middle custom-table">
+            <thead>
+                <tr>
+                    <th>Clave</th>
+                    <th>Fecha</th>
+                    <th>Mes</th>
+                    <th>Proveedor</th>
+                    <th>Rubro</th>
+                    <th>Subrubro</th>
+                    <th class="text-end">Monto</th>
+                    <th>Folio</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for registro in registros %}
+                    <tr>
+                        <td>
+                            <strong>{{ registro.unique_key }}</strong>
+                        </td>
+
+                        <td>{{ registro.application_date.strftime('%d/%m/%Y') }}</td>
+
+                        <td>{{ registro.application_month }}</td>
+
+                        <td>{{ registro.supplier.business_name }}</td>
+
+                        <td>{{ registro.category.name }}</td>
+
+                        <td>
+                            {% if registro.subcategory %}
+                                {{ registro.subcategory.name }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end">
+                            <strong>${{ "{:,.2f}".format(registro.amount) }}</strong>
+                        </td>
+
+                        <td>{{ registro.operation_folio or "N/A" }}</td>
+
+                        <td class="text-end">
+                            <a href="{{ url_for('registros.editar', registro_id=registro.id) }}"
+                               class="btn btn-sm btn-outline-primary">
+                                Editar
+                            </a>
+
+                            <form method="POST"
+                                  action="{{ url_for('registros.eliminar', registro_id=registro.id) }}"
+                                  class="d-inline"
+                                  onsubmit="return confirm('¿Seguro que deseas eliminar este registro?');">
+                                <button class="btn btn-sm btn-outline-danger" type="submit">
+                                    Eliminar
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+
+                    <tr class="concept-row">
+                        <td colspan="9">
+                            <strong>Concepto:</strong> {{ registro.concept }}
+                            {% if registro.comments %}
+                                <br>
+                                <strong>Comentarios:</strong> {{ registro.comments }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-5">
+                            Todavía no hay registros capturados.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

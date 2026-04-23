@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% if modo == "nuevo" %}
+    {% set titulo = "Nuevo registro" %}
+    {% set subtitulo = "Captura una nueva operación" %}
+{% else %}
+    {% set titulo = "Editar registro" %}
+    {% set subtitulo = "Actualiza la información de la operación " ~ registro.unique_key %}
+{% endif %}
+
+{% block page_title %}{{ titulo }}{% endblock %}
+{% block page_subtitle %}{{ subtitulo }}{% endblock %}
+
+{% block content %}
+
+<div class="panel">
+    <form method="POST">
+
+        <div class="form-section-title">
+            <h3>Datos principales</h3>
+            <p>La clave única y el mes se generan automáticamente.</p>
+        </div>
+
+        {% if modo == "editar" %}
+            <div class="record-key-box mb-4">
+                <span>Clave única</span>
+                <strong>{{ registro.unique_key }}</strong>
+            </div>
+        {% endif %}
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Fecha de aplicación *</label>
+                <input type="text"
+                       name="application_date"
+                       id="application_date"
+                       class="form-control"
+                       placeholder="dd/mm/yyyy"
+                       value="{% if registro %}{{ registro.application_date.strftime('%d/%m/%Y') }}{% endif %}"
+                       required>
+                <small class="text-muted">Ejemplo: 15/01/2026</small>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Mes automático</label>
+                <input type="text"
+                       id="month_preview"
+                       class="form-control"
+                       value="{% if registro %}{{ registro.application_month }}{% endif %}"
+                       disabled>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Monto *</label>
+                <input type="text"
+                       name="amount"
+                       id="amount"
+                       class="form-control"
+                       placeholder="$0.00"
+                       value="{% if registro %}${{ '{:,.2f}'.format(registro.amount) }}{% endif %}"
+                       required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Proveedor *</label>
+                <select name="supplier_id" id="supplier_id" class="form-select select2-field" required>
+                    <option value="">Selecciona un proveedor</option>
+
+                    {% for proveedor in proveedores %}
+                        <option value="{{ proveedor.id }}"
+                            {% if registro and registro.supplier_id == proveedor.id %}selected{% endif %}>
+                            {{ proveedor.business_name }} - {{ proveedor.rfc }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Rubro *</label>
+                <select name="category_id" id="category_id" class="form-select select2-field" required>
+                    <option value="">Selecciona un rubro</option>
+
+                    {% for rubro in rubros %}
+                        <option value="{{ rubro.id }}"
+                            {% if registro and registro.category_id == rubro.id %}selected{% endif %}>
+                            {{ rubro.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Subrubro</label>
+                <select name="subcategory_id" id="subcategory_id" class="form-select select2-field">
+                    <option value="">Sin subrubro</option>
+
+                    {% if modo == "editar" and subrubros_actuales %}
+                        {% for subrubro in subrubros_actuales %}
+                            <option value="{{ subrubro.id }}"
+                                {% if registro.subcategory_id == subrubro.id %}selected{% endif %}>
+                                {{ subrubro.name }}
+                            </option>
+                        {% endfor %}
+                    {% endif %}
+                </select>
+                <small class="text-muted">Puede dejarse vacío.</small>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Folio de operación</label>
+                <input type="text"
+                       name="operation_folio"
+                       class="form-control"
+                       value="{{ registro.operation_folio if registro else '' }}">
+            </div>
+
+            <div class="col-md-12">
+                <label class="form-label">Concepto *</label>
+                <textarea name="concept"
+                          class="form-control"
+                          rows="3"
+                          required>{{ registro.concept if registro else '' }}</textarea>
+            </div>
+
+            <div class="col-md-12">
+                <label class="form-label">Comentarios</label>
+                <textarea name="comments"
+                          class="form-control"
+                          rows="3">{{ registro.comments if registro else '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-actions mt-4">
+            <a href="{{ url_for('registros.index') }}" class="btn btn-outline-secondary">
+                Cancelar
+            </a>
+
+            <button type="submit" class="btn btn-success">
+                Guardar registro
+            </button>
+        </div>
+
+    </form>
+</div>
+
+<script>
+    window.selectedSubcategoryId = "{% if registro and registro.subcategory_id %}{{ registro.subcategory_id }}{% else %}{% endif %}";
+</script>
+
+<script src="{{ url_for('static', filename='js/registros.js') }}"></script>
+
+{% endblock %}
