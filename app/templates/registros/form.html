@@ -38,7 +38,7 @@
                        placeholder="dd/mm/yyyy"
                        value="{% if registro %}{{ registro.application_date.strftime('%d/%m/%Y') }}{% endif %}"
                        required>
-                <small class="text-muted">Ejemplo: 15/01/2026</small>
+                <small class="text-muted">Puedes escribir la fecha o elegirla en el calendario.</small>
             </div>
 
             <div class="col-md-4">
@@ -63,7 +63,7 @@
 
             <div class="col-md-6">
                 <label class="form-label">Proveedor *</label>
-                <select name="supplier_id" id="supplier_id" class="form-select select2-field" required>
+                <select name="supplier_id" class="form-select select2-field" required>
                     <option value="">Selecciona un proveedor</option>
 
                     {% for proveedor in proveedores %}
@@ -77,33 +77,16 @@
 
             <div class="col-md-6">
                 <label class="form-label">Rubro *</label>
-                <select name="category_id" id="category_id" class="form-select select2-field" required>
+                <select name="budget_item_id" class="form-select select2-field" required>
                     <option value="">Selecciona un rubro</option>
 
-                    {% for rubro in rubros %}
-                        <option value="{{ rubro.id }}"
-                            {% if registro and registro.category_id == rubro.id %}selected{% endif %}>
-                            {{ rubro.name }}
+                    {% for item in budget_items %}
+                        <option value="{{ item.id }}"
+                            {% if registro and registro.budget_item_id == item.id %}selected{% endif %}>
+                            {{ item.item_code }} - {{ item.item_name }}
                         </option>
                     {% endfor %}
                 </select>
-            </div>
-
-            <div class="col-md-6">
-                <label class="form-label">Subrubro</label>
-                <select name="subcategory_id" id="subcategory_id" class="form-select select2-field">
-                    <option value="">Sin subrubro</option>
-
-                    {% if modo == "editar" and subrubros_actuales %}
-                        {% for subrubro in subrubros_actuales %}
-                            <option value="{{ subrubro.id }}"
-                                {% if registro.subcategory_id == subrubro.id %}selected{% endif %}>
-                                {{ subrubro.name }}
-                            </option>
-                        {% endfor %}
-                    {% endif %}
-                </select>
-                <small class="text-muted">Puede dejarse vacío.</small>
             </div>
 
             <div class="col-md-6">
@@ -142,10 +125,6 @@
 
     </form>
 </div>
-
-<script>
-    window.selectedSubcategoryId = "{% if registro and registro.subcategory_id %}{{ registro.subcategory_id }}{% else %}{% endif %}";
-</script>
 
 <script src="{{ url_for('static', filename='js/registros.js') }}"></script>
 

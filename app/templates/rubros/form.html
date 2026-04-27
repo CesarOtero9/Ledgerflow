@@ -2,10 +2,10 @@
 
 {% if modo == "nuevo" %}
     {% set titulo = "Nuevo rubro" %}
-    {% set subtitulo = "Registra un nuevo rubro principal" %}
+    {% set subtitulo = "Registra un rubro o subrubro jerárquico" %}
 {% else %}
     {% set titulo = "Editar rubro" %}
-    {% set subtitulo = "Actualiza la información del rubro" %}
+    {% set subtitulo = "Actualiza número, nombre y presupuesto del rubro" %}
 {% endif %}
 
 {% block page_title %}{{ titulo }}{% endblock %}
@@ -18,24 +18,52 @@
 
         <div class="form-section-title">
             <h3>Datos del rubro</h3>
-            <p>Este catálogo se usará para clasificar los registros principales.</p>
+            <p>
+                Usa estructura jerárquica por número. Ejemplos:
+                <strong>1</strong>, <strong>1.1</strong>, <strong>1.1.1</strong>
+            </p>
+        </div>
+
+        <div class="hint-card mb-4">
+            <h4>Reglas</h4>
+            <ul>
+                <li>Si capturas <strong>1.1</strong>, debe existir antes el <strong>1</strong>.</li>
+                <li>Si capturas <strong>1.1.1</strong>, debe existir antes el <strong>1.1</strong>.</li>
+                <li>El sistema detecta automáticamente el padre y el nivel.</li>
+                <li>La suma de los hijos deberá coincidir con el presupuesto del padre.</li>
+            </ul>
         </div>
 
         <div class="row g-3">
-            <div class="col-md-5">
-                <label class="form-label">Nombre del rubro *</label>
+            <div class="col-md-3">
+                <label class="form-label">Número de rubro *</label>
                 <input type="text"
-                       name="name"
+                       name="item_code"
                        class="form-control"
-                       value="{{ rubro.name if rubro else '' }}"
+                       placeholder="Ej. 1 o 1.1 o 1.1.1"
+                       value="{{ item.item_code if item else '' }}"
                        required>
             </div>
 
-            <div class="col-md-7">
-                <label class="form-label">Descripción</label>
-                <textarea name="description"
-                          class="form-control"
-                          rows="3">{{ rubro.description if rubro else '' }}</textarea>
+            <div class="col-md-5">
+                <label class="form-label">Nombre del rubro *</label>
+                <input type="text"
+                       name="item_name"
+                       class="form-control"
+                       placeholder="Ej. INTERNET"
+                       value="{{ item.item_name if item else '' }}"
+                       required>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Presupuesto *</label>
+                <input type="text"
+                       name="budget_amount"
+                       id="budget_amount"
+                       class="form-control"
+                       placeholder="$0.00"
+                       value="{% if item %}${{ '{:,.2f}'.format(item.budget_amount) }}{% endif %}"
+                       required>
             </div>
 
             {% if modo == "editar" %}
@@ -45,7 +73,7 @@
                                type="checkbox"
                                name="is_active"
                                id="is_active"
-                               {% if rubro.is_active %}checked{% endif %}>
+                               {% if item.is_active %}checked{% endif %}>
                         <label class="form-check-label" for="is_active">
                             Rubro activo
                         </label>
@@ -53,6 +81,24 @@
                 </div>
             {% endif %}
         </div>
+
+        {% if available_items %}
+            <div class="panel mt-4 budget-reference-panel">
+                <div class="form-section-title">
+                    <h3>Referencia rápida</h3>
+                    <p>Rubros ya existentes para ayudarte a capturar correctamente el árbol.</p>
+                </div>
+
+                <div class="reference-list">
+                    {% for ref in available_items %}
+                        <div class="reference-item">
+                            <strong>{{ ref.item_code }}</strong>
+                            <span>{{ ref.item_name }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
 
         <div class="form-actions mt-4">
             <a href="{{ url_for('rubros.index') }}" class="btn btn-outline-secondary">
@@ -66,5 +112,38 @@
 
     </form>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const budgetInput = document.getElementById("budget_amount");
+
+        if (!budgetInput) return;
+
+        budgetInput.addEventListener("blur", function () {
+            let value = budgetInput.value;
+
+            value = value.replace("$", "")
+                .replaceAll(",", "")
+                .replace("MXN", "")
+                .trim();
+
+            if (value === "") {
+                budgetInput.value = "";
+                return;
+            }
+
+            const numberValue = Number(value);
+
+            if (isNaN(numberValue)) {
+                return;
+            }
+
+            budgetInput.value = numberValue.toLocaleString("es-MX", {
+                style: "currency",
+                currency: "MXN"
+            });
+        });
+    });
+</script>
 
 {% endblock %}

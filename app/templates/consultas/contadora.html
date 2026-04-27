@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block page_title %}Resumen contadora{% endblock %}
+{% block page_subtitle %}Tabla consolidada anual por rubro y mes{% endblock %}
+
+{% block content %}
+
+<div class="module-header">
+    <div>
+        <h3>Resumen contadora</h3>
+        <p>Vista consolidada tipo Excel con total general y desglose por mes para cada rubro.</p>
+    </div>
+</div>
+
+<div class="panel mt-4 dashboard-filter-panel">
+    <form method="GET">
+        <div class="filter-grid contadora-filter-grid">
+            <div>
+                <label class="form-label">Año</label>
+                <select name="year" class="form-select select2-field">
+                    <option value="">Todos</option>
+                    {% for year in available_years %}
+                        <option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>
+                            {{ year }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Proveedores</label>
+                <select name="suppliers" class="form-select select2-multiple" multiple>
+                    {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if supplier.id in selected_suppliers %}selected{% endif %}>
+                            {{ supplier.business_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-success w-100">
+                    <i class="fa-solid fa-filter"></i>
+                    Aplicar
+                </button>
+
+                <a href="{{ url_for('consultas.contadora') }}" class="btn btn-outline-secondary w-100">
+                    Limpiar
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="cards-grid mt-4">
+    <div class="metric-card premium">
+        <span>Total general</span>
+        <strong>${{ "{:,.2f}".format(grand_total_all) }}</strong>
+        <small>Suma anual</small>
+    </div>
+
+    <div class="metric-card premium">
+        <span>Renglones</span>
+        <strong>{{ summary_rows|length }}</strong>
+        <small>Rubros incluidos</small>
+    </div>
+
+    <div class="metric-card premium">
+        <span>Registros</span>
+        <strong>{{ total_records }}</strong>
+        <small>Movimientos encontrados</small>
+    </div>
+
+    <div class="metric-card premium">
+        <span>Año consultado</span>
+        <strong>{{ selected_year if selected_year else "TODOS" }}</strong>
+        <small>Periodo</small>
+    </div>
+</div>
+
+<div class="panel mt-4">
+    <div class="table-panel-header">
+        <div>
+            <h3>Tabla consolidada anual</h3>
+            <p>Número de rubro, concepto, total general y desglose mensual.</p>
+        </div>
+    </div>
+
+    <div class="table-responsive mt-3">
+        <table class="table align-middle custom-table contadora-table">
+            <thead>
+                <tr>
+                    <th>Número</th>
+                    <th>Concepto</th>
+                    <th class="text-end">Total general</th>
+                    {% for month_num, month_name in months.items() %}
+                        <th class="text-end">{{ month_name[:3] }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in summary_rows %}
+                    <tr>
+                        <td><strong>{{ row.item_code }}</strong></td>
+                        <td>{{ row.item_name }}</td>
+                        <td class="text-end"><strong>${{ "{:,.2f}".format(row.total_general) }}</strong></td>
+                        {% for month_num, month_name in months.items() %}
+                            <td class="text-end">
+                                ${{ "{:,.2f}".format(row.months[month_num]) }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="15" class="text-center text-muted py-5">
+                            No hay información para los filtros seleccionados.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+
+            <tfoot>
+                <tr>
+                    <th colspan="2">TOTAL GENERAL</th>
+                    <th class="text-end">${{ "{:,.2f}".format(grand_total_all) }}</th>
+                    {% for month_num, month_name in months.items() %}
+                        <th class="text-end">${{ "{:,.2f}".format(grand_totals[month_num]) }}</th>
+                    {% endfor %}
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

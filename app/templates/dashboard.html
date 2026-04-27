@@ -10,7 +10,7 @@
         <span class="eyebrow">LedgerFlow Analytics</span>
         <h3>Centro de control presupuestal</h3>
         <p>
-            Filtra por periodo, rubro, subrubro o proveedor para revisar presupuesto, pagos y porcentaje cubierto.
+            Filtra por periodo, rubro jerárquico o proveedor para revisar presupuesto, pagos y porcentaje cubierto.
         </p>
     </div>
 
@@ -50,23 +50,11 @@
 
             <div>
                 <label class="form-label">Rubro</label>
-                <select name="category_id" class="form-select select2-field">
+                <select name="budget_item_id" class="form-select select2-field">
                     <option value="">Todos</option>
-                    {% for category in categories %}
-                        <option value="{{ category.id }}" {% if filters.category_id == category.id %}selected{% endif %}>
-                            {{ category.name }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div>
-                <label class="form-label">Subrubro</label>
-                <select name="subcategory_id" class="form-select select2-field">
-                    <option value="">Todos</option>
-                    {% for subcategory in subcategories %}
-                        <option value="{{ subcategory.id }}" {% if filters.subcategory_id == subcategory.id %}selected{% endif %}>
-                            {{ subcategory.name }}
+                    {% for item in budget_items %}
+                        <option value="{{ item.id }}" {% if filters.budget_item_id == item.id %}selected{% endif %}>
+                            {{ item.item_code }} - {{ item.item_name }}
                         </option>
                     {% endfor %}
                 </select>
@@ -119,7 +107,7 @@
     <div class="metric-card premium">
         <span>Presupuesto</span>
         <strong>${{ "{:,.2f}".format(budget_summary.total_budget) }}</strong>
-        <small>Subrubros seleccionados</small>
+        <small>Rubros seleccionados</small>
     </div>
 
     <div class="metric-card premium">
@@ -173,8 +161,8 @@
 <div class="chart-panel mt-4">
     <div class="chart-title">
         <div>
-            <h4>Avance por subrubro</h4>
-            <p>Presupuesto, pagado y porcentaje cubierto de cada subrubro.</p>
+            <h4>Avance por rubro</h4>
+            <p>Presupuesto, pagado y porcentaje cubierto de cada rubro mostrado.</p>
         </div>
     </div>
 
@@ -232,7 +220,7 @@
 <div class="panel mt-4">
     <div class="table-panel-header">
         <div>
-            <h3>Detalle presupuestal por subrubro</h3>
+            <h3>Detalle presupuestal por rubro</h3>
             <p>Avance de pagos contra presupuesto asignado.</p>
         </div>
     </div>
@@ -241,8 +229,8 @@
         <table class="table align-middle custom-table">
             <thead>
                 <tr>
+                    <th>Número</th>
                     <th>Rubro</th>
-                    <th>Subrubro</th>
                     <th class="text-end">Presupuesto</th>
                     <th class="text-end">Pagado</th>
                     <th class="text-end">Pendiente</th>
@@ -254,8 +242,8 @@
             <tbody>
                 {% for item in subcategory_breakdown %}
                     <tr>
-                        <td>{{ item.category_name }}</td>
-                        <td><strong>{{ item.subcategory_name }}</strong></td>
+                        <td><strong>{{ item.category_name }}</strong></td>
+                        <td>{{ item.subcategory_name }}</td>
 
                         <td class="text-end">
                             <strong>${{ "{:,.2f}".format(item.budget) }}</strong>
@@ -296,7 +284,7 @@
                 {% else %}
                     <tr>
                         <td colspan="7" class="text-center text-muted py-5">
-                            No hay subrubros con presupuesto para los filtros seleccionados.
+                            No hay rubros con presupuesto para los filtros seleccionados.
                         </td>
                     </tr>
                 {% endfor %}
@@ -337,7 +325,13 @@
                         </td>
                         <td>{{ registro.application_date.strftime('%d/%m/%Y') }}</td>
                         <td>{{ registro.supplier.business_name }}</td>
-                        <td>{{ registro.category.name }}</td>
+                        <td>
+                            {% if registro.budget_item %}
+                                {{ registro.budget_item.item_code }} - {{ registro.budget_item.item_name }}
+                            {% else %}
+                                <span class="text-muted">Sin rubro</span>
+                            {% endif %}
+                        </td>
                         <td class="text-end">
                             <strong>${{ "{:,.2f}".format(registro.amount) }}</strong>
                         </td>

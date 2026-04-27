@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block page_title %}Consulta por proveedor{% endblock %}
+{% block page_subtitle %}Consulta operativa y resumen por proveedor{% endblock %}
+
+{% block content %}
+
+<div class="module-header">
+    <div>
+        <h3>Consulta por proveedor</h3>
+        <p>Filtra por proveedor, meses y año para obtener un resumen imprimible tipo Excel.</p>
+    </div>
+</div>
+
+<div class="panel mt-4 dashboard-filter-panel">
+    <form method="GET">
+        <div class="filter-grid provider-filter-grid">
+            <div>
+                <label class="form-label">Año</label>
+                <select name="year" class="form-select select2-field">
+                    <option value="">Todos</option>
+                    {% for year in available_years %}
+                        <option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>
+                            {{ year }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Meses</label>
+                <select name="months" class="form-select select2-multiple" multiple>
+                    {% for number, name in months.items() %}
+                        <option value="{{ number }}" {% if number in selected_months %}selected{% endif %}>
+                            {{ name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Proveedores</label>
+                <select name="suppliers" class="form-select select2-multiple" multiple>
+                    {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if supplier.id in selected_suppliers %}selected{% endif %}>
+                            {{ supplier.business_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-success w-100">
+                    <i class="fa-solid fa-filter"></i>
+                    Aplicar
+                </button>
+
+                <a href="{{ url_for('consultas.proveedores') }}" class="btn btn-outline-secondary w-100">
+                    Limpiar
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="cards-grid mt-4">
+    <div class="metric-card premium">
+        <span>Total pagado</span>
+        <strong>${{ "{:,.2f}".format(total_paid) }}</strong>
+        <small>Suma de registros filtrados</small>
+    </div>
+
+    <div class="metric-card premium">
+        <span>Presupuesto raíz relacionado</span>
+        <strong>${{ "{:,.2f}".format(total_budget) }}</strong>
+        <small>Raíces presupuestales involucradas</small>
+    </div>
+
+    <div class="metric-card premium">
+        <span>% cubierto</span>
+        <strong>{{ covered_percentage }}%</strong>
+        <small>Pagado / presupuesto raíz</small>
+    </div>
+
+    <div class="metric-card premium">
+        <span>Registros</span>
+        <strong>{{ total_records }}</strong>
+        <small>Operaciones encontradas</small>
+    </div>
+</div>
+
+<div class="panel mt-4">
+    <div class="table-panel-header">
+        <div>
+            <h3>Resumen por proveedor</h3>
+            <p>Total acumulado y número de registros por proveedor.</p>
+        </div>
+    </div>
+
+    <div class="table-responsive mt-3">
+        <table class="table align-middle custom-table">
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-end">Registros</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in provider_summary %}
+                    <tr>
+                        <td><strong>{{ item.supplier_name }}</strong></td>
+                        <td class="text-end">${{ "{:,.2f}".format(item.total) }}</td>
+                        <td class="text-end">{{ item.records }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center text-muted py-5">
+                            No hay información para los filtros seleccionados.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="panel mt-4">
+    <div class="table-panel-header">
+        <div>
+            <h3>Impacto presupuestal en cadena</h3>
+            <p>El pago afecta al rubro directo y a todos sus padres.</p>
+        </div>
+    </div>
+
+    <div class="table-responsive mt-3">
+        <table class="table align-middle custom-table">
+            <thead>
+                <tr>
+                    <th>Número</th>
+                    <th>Rubro</th>
+                    <th class="text-end">Presupuesto</th>
+                    <th class="text-end">Pagado acumulado</th>
+                    <th class="text-end">Pendiente</th>
+                    <th class="text-end">% cubierto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in chain_summary %}
+                    <tr>
+                        <td><strong>{{ item.item_code }}</strong></td>
+                        <td style="padding-left: {{ (item.level - 1) * 18 }}px;">
+                            {{ item.item_name }}
+                        </td>
+                        <td class="text-end">${{ "{:,.2f}".format(item.budget) }}</td>
+                        <td class="text-end">${{ "{:,.2f}".format(item.paid) }}</td>
+                        <td class="text-end">
+                            {% if item.remaining < 0 %}
+                                <span class="text-danger">-${{ "{:,.2f}".format(item.remaining * -1) }}</span>
+                            {% else %}
+                                ${{ "{:,.2f}".format(item.remaining) }}
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ item.percentage }}%</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            No hay impacto presupuestal para los filtros seleccionados.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="panel mt-4">
+    <div class="table-panel-header">
+        <div>
+            <h3>Detalle de movimientos</h3>
+            <p>Fecha, proveedor, rubro, monto y concepto.</p>
+        </div>
+    </div>
+
+    <div class="table-responsive mt-3">
+        <table class="table align-middle custom-table">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th>Rubro</th>
+                    <th class="text-end">Monto</th>
+                    <th>Concepto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for registro in registros %}
+                    <tr>
+                        <td>{{ registro.application_date.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ registro.supplier.business_name }}</td>
+                        <td>
+                            {% if registro.budget_item %}
+                                {{ registro.budget_item.item_code }} - {{ registro.budget_item.item_name }}
+                            {% else %}
+                                <span class="text-muted">Sin rubro</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">${{ "{:,.2f}".format(registro.amount) }}</td>
+                        <td>{{ registro.concept }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-5">
+                            No hay registros para mostrar.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

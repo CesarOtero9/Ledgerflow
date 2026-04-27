@@ -26,7 +26,6 @@
                     <th>Mes</th>
                     <th>Proveedor</th>
                     <th>Rubro</th>
-                    <th>Subrubro</th>
                     <th class="text-end">Monto</th>
                     <th>Folio</th>
                     <th class="text-end">Acciones</th>
@@ -46,13 +45,11 @@
 
                         <td>{{ registro.supplier.business_name }}</td>
 
-                        <td>{{ registro.category.name }}</td>
-
                         <td>
-                            {% if registro.subcategory %}
-                                {{ registro.subcategory.name }}
+                            {% if registro.budget_item %}
+                                {{ registro.budget_item.item_code }} - {{ registro.budget_item.item_name }}
                             {% else %}
-                                <span class="text-muted">N/A</span>
+                                <span class="text-muted">Sin rubro</span>
                             {% endif %}
                         </td>
 
@@ -80,7 +77,7 @@
                     </tr>
 
                     <tr class="concept-row">
-                        <td colspan="9">
+                        <td colspan="8">
                             <strong>Concepto:</strong> {{ registro.concept }}
                             {% if registro.comments %}
                                 <br>
@@ -90,7 +87,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-5">
+                        <td colspan="8" class="text-center text-muted py-5">
                             Todavía no hay registros capturados.
                         </td>
                     </tr>

@@ -2,8 +2,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const dateInput = document.getElementById("application_date");
     const monthPreview = document.getElementById("month_preview");
     const amountInput = document.getElementById("amount");
-    const categorySelect = document.getElementById("category_id");
-    const subcategorySelect = document.getElementById("subcategory_id");
 
     const months = {
         1: "ENERO",
@@ -38,8 +36,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    function updateMonthPreview() {
-        const value = dateInput.value.trim();
+    function updateMonthPreviewFromDMY(value) {
         const parts = value.split("/");
 
         if (parts.length !== 3) {
@@ -60,6 +57,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function formatCurrencyInput() {
+        if (!amountInput) return;
+
         let value = amountInput.value;
 
         value = value.replace("$", "").replaceAll(",", "").replace("MXN", "").trim();
@@ -81,59 +80,34 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    function loadSubcategories(categoryId, selectedSubcategoryId = "") {
-        if (window.jQuery && $.fn.select2) {
-            $("#subcategory_id").select2("destroy");
-        }
-
-        subcategorySelect.innerHTML = '<option value="">Sin subrubro</option>';
-
-        if (!categoryId) {
-            initSelect2();
-            return;
-        }
-
-        fetch(`/registros/api/subrubros/${categoryId}`)
-            .then(response => response.json())
-            .then(data => {
-                data.forEach(subcategory => {
-                    const option = document.createElement("option");
-                    option.value = subcategory.id;
-                    option.textContent = subcategory.name;
-
-                    if (String(subcategory.id) === String(selectedSubcategoryId)) {
-                        option.selected = true;
-                    }
-
-                    subcategorySelect.appendChild(option);
-                });
-
-                initSelect2();
-            })
-            .catch(error => {
-                console.error("Error al cargar subrubros:", error);
-                initSelect2();
-            });
-    }
-
     initSelect2();
 
-    if (dateInput) {
-        dateInput.addEventListener("input", updateMonthPreview);
-        updateMonthPreview();
+    if (dateInput && typeof flatpickr !== "undefined") {
+        flatpickr(dateInput, {
+            locale: "es",
+            dateFormat: "d/m/Y",
+            allowInput: true,
+            defaultDate: dateInput.value ? dateInput.value : null,
+            onChange: function (selectedDates, dateStr) {
+                updateMonthPreviewFromDMY(dateStr);
+            },
+            onReady: function (_, dateStr) {
+                if (dateStr) {
+                    updateMonthPreviewFromDMY(dateStr);
+                }
+            }
+        });
+
+        dateInput.addEventListener("input", function () {
+            updateMonthPreviewFromDMY(dateInput.value.trim());
+        });
+
+        if (dateInput.value) {
+            updateMonthPreviewFromDMY(dateInput.value.trim());
+        }
     }
 
     if (amountInput) {
         amountInput.addEventListener("blur", formatCurrencyInput);
-    }
-
-    if (categorySelect) {
-        $("#category_id").on("change", function () {
-            loadSubcategories(this.value);
-        });
-
-        if (categorySelect.value && window.selectedSubcategoryId) {
-            loadSubcategories(categorySelect.value, window.selectedSubcategoryId);
-        }
     }
 });

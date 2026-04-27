@@ -5,7 +5,7 @@ from flask_login import login_required
 from sqlalchemy import func
 
 from app.extensions import db
-from app.models import Category, Subcategory, Entry
+from app.models import BudgetItem, Entry
 
 rubros_bp = Blueprint("rubros", __name__, url_prefix="/rubros")
 
@@ -28,129 +28,58 @@ def parse_amount(value):
         return Decimal("0.00")
 
 
-@rubros_bp.route("/")
-@login_required
-def index():
-    rubros = Category.query.order_by(Category.name.asc()).all()
-    return render_template("rubros/index.html", rubros=rubros)
+def normalize_code(code):
+    return code.strip().replace(" ", "")
 
 
-@rubros_bp.route("/nuevo", methods=["GET", "POST"])
-@login_required
-def nuevo():
-    if request.method == "POST":
-        name = request.form.get("name", "").strip().upper()
-        description = request.form.get("description", "").strip()
-
-        if not name:
-            flash("El nombre del rubro es obligatorio.", "danger")
-            return redirect(url_for("rubros.nuevo"))
-
-        existing = Category.query.filter_by(name=name).first()
-
-        if existing:
-            flash("Ya existe un rubro con ese nombre.", "warning")
-            return redirect(url_for("rubros.nuevo"))
-
-        rubro = Category(
-            name=name,
-            description=description or None,
-            is_active=True
-        )
-
-        db.session.add(rubro)
-        db.session.commit()
-
-        flash("Rubro registrado correctamente.", "success")
-        return redirect(url_for("rubros.index"))
-
-    return render_template("rubros/form.html", rubro=None, modo="nuevo")
+def get_level_from_code(item_code):
+    if not item_code:
+        return 1
+    return item_code.count(".") + 1
 
 
-@rubros_bp.route("/editar/<int:rubro_id>", methods=["GET", "POST"])
-@login_required
-def editar(rubro_id):
-    rubro = Category.query.get_or_404(rubro_id)
+def get_parent_code(item_code):
+    parts = item_code.split(".")
 
-    if request.method == "POST":
-        name = request.form.get("name", "").strip().upper()
-        description = request.form.get("description", "").strip()
-        is_active = True if request.form.get("is_active") == "on" else False
+    if len(parts) == 1:
+        return None
 
-        if not name:
-            flash("El nombre del rubro es obligatorio.", "danger")
-            return redirect(url_for("rubros.editar", rubro_id=rubro.id))
-
-        existing = Category.query.filter(
-            Category.name == name,
-            Category.id != rubro.id
-        ).first()
-
-        if existing:
-            flash("Otro rubro ya tiene ese nombre.", "warning")
-            return redirect(url_for("rubros.editar", rubro_id=rubro.id))
-
-        rubro.name = name
-        rubro.description = description or None
-        rubro.is_active = is_active
-
-        db.session.commit()
-
-        flash("Rubro actualizado correctamente.", "success")
-        return redirect(url_for("rubros.index"))
-
-    return render_template("rubros/form.html", rubro=rubro, modo="editar")
+    return ".".join(parts[:-1])
 
 
-@rubros_bp.route("/desactivar/<int:rubro_id>", methods=["POST"])
-@login_required
-def desactivar(rubro_id):
-    rubro = Category.query.get_or_404(rubro_id)
-    rubro.is_active = False
-
-    for subrubro in rubro.subcategories:
-        subrubro.is_active = False
-
-    db.session.commit()
-
-    flash("Rubro y subrubros desactivados correctamente.", "success")
-    return redirect(url_for("rubros.index"))
-
-
-@rubros_bp.route("/activar/<int:rubro_id>", methods=["POST"])
-@login_required
-def activar(rubro_id):
-    rubro = Category.query.get_or_404(rubro_id)
-    rubro.is_active = True
-
-    db.session.commit()
-
-    flash("Rubro activado correctamente.", "success")
-    return redirect(url_for("rubros.index"))
+def natural_code_key(item_code):
+    """
+    Convierte códigos como:
+    1 -> (1,)
+    1.1 -> (1, 1)
+    1.10 -> (1, 10)
+    10 -> (10,)
+    para ordenarlos jerárquicamente de forma natural.
+    """
+    try:
+        return tuple(int(part) for part in item_code.split("."))
+    except ValueError:
+        # fallback por si algún código no es totalmente numérico
+        return tuple(item_code.split("."))
 
 
-@rubros_bp.route("/<int:rubro_id>/subrubros")
-@login_required
-def subrubros(rubro_id):
-    rubro = Category.query.get_or_404(rubro_id)
+def get_all_budget_items_sorted():
+    items = BudgetItem.query.all()
+    return sorted(items, key=lambda x: natural_code_key(x.item_code))
 
-    subrubros = (
-        Subcategory.query
-        .filter_by(category_id=rubro.id)
-        .order_by(Subcategory.name.asc())
-        .all()
-    )
 
-    stats = {}
+def build_tree_rows():
+    items = get_all_budget_items_sorted()
+    rows = []
 
-    for subrubro in subrubros:
+    for item in items:
         paid_amount = (
             db.session.query(func.coalesce(func.sum(Entry.amount), 0))
-            .filter(Entry.subcategory_id == subrubro.id)
+            .filter(Entry.budget_item_id == item.id)
             .scalar()
         )
 
-        budget = float(subrubro.budget_amount or 0)
+        budget = float(item.budget_amount or 0)
         paid = float(paid_amount or 0)
         remaining = budget - paid
 
@@ -159,158 +88,171 @@ def subrubros(rubro_id):
         else:
             percentage = 0
 
-        if percentage >= 100:
-            status = "danger"
-        elif percentage >= 80:
-            status = "warning"
-        else:
-            status = "success"
+        children_budget_sum = (
+            db.session.query(func.coalesce(func.sum(BudgetItem.budget_amount), 0))
+            .filter(BudgetItem.parent_id == item.id)
+            .scalar()
+        )
 
-        stats[subrubro.id] = {
-            "budget": budget,
+        children_budget_sum = float(children_budget_sum or 0)
+
+        if len(item.children) > 0:
+            is_budget_match = round(children_budget_sum, 2) == round(budget, 2)
+        else:
+            is_budget_match = True
+
+        rows.append({
+            "item": item,
             "paid": paid,
             "remaining": remaining,
             "percentage": percentage,
-            "status": status
-        }
+            "children_budget_sum": children_budget_sum,
+            "is_budget_match": is_budget_match
+        })
 
-    total_budget = sum(item["budget"] for item in stats.values())
-    total_paid = sum(item["paid"] for item in stats.values())
-    total_remaining = total_budget - total_paid
-
-    if total_budget > 0:
-        total_percentage = round((total_paid / total_budget) * 100, 2)
-    else:
-        total_percentage = 0
-
-    summary = {
-        "total_budget": total_budget,
-        "total_paid": total_paid,
-        "total_remaining": total_remaining,
-        "total_percentage": total_percentage
-    }
-
-    return render_template(
-        "rubros/subrubros.html",
-        rubro=rubro,
-        subrubros=subrubros,
-        stats=stats,
-        summary=summary
-    )
+    return rows
 
 
-@rubros_bp.route("/<int:rubro_id>/subrubros/nuevo", methods=["GET", "POST"])
+@rubros_bp.route("/")
 @login_required
-def nuevo_subrubro(rubro_id):
-    rubro = Category.query.get_or_404(rubro_id)
+def index():
+    rows = build_tree_rows()
+    return render_template("rubros/index.html", rows=rows)
 
+
+@rubros_bp.route("/nuevo", methods=["GET", "POST"])
+@login_required
+def nuevo():
     if request.method == "POST":
-        name = request.form.get("name", "").strip().upper()
-        description = request.form.get("description", "").strip()
-        budget_text = request.form.get("budget_amount", "").strip()
-        budget_amount = parse_amount(budget_text)
+        item_code = normalize_code(request.form.get("item_code", ""))
+        item_name = request.form.get("item_name", "").strip().upper()
+        budget_amount = parse_amount(request.form.get("budget_amount", "").strip())
 
-        if not name:
-            flash("El nombre del subrubro es obligatorio.", "danger")
-            return redirect(url_for("rubros.nuevo_subrubro", rubro_id=rubro.id))
+        if not item_code or not item_name:
+            flash("El número y el nombre del rubro son obligatorios.", "danger")
+            return redirect(url_for("rubros.nuevo"))
 
-        existing = Subcategory.query.filter_by(
-            category_id=rubro.id,
-            name=name
-        ).first()
-
+        existing = BudgetItem.query.filter_by(item_code=item_code).first()
         if existing:
-            flash("Ya existe un subrubro con ese nombre dentro de este rubro.", "warning")
-            return redirect(url_for("rubros.nuevo_subrubro", rubro_id=rubro.id))
+            flash("Ya existe un rubro con ese número.", "warning")
+            return redirect(url_for("rubros.nuevo"))
 
-        subrubro = Subcategory(
-            category_id=rubro.id,
-            name=name,
-            description=description or None,
+        level = get_level_from_code(item_code)
+        parent_code = get_parent_code(item_code)
+        parent = None
+
+        if parent_code:
+            parent = BudgetItem.query.filter_by(item_code=parent_code).first()
+
+            if not parent:
+                flash(
+                    f"No se puede crear {item_code} porque no existe su padre {parent_code}.",
+                    "danger"
+                )
+                return redirect(url_for("rubros.nuevo"))
+
+        item = BudgetItem(
+            item_code=item_code,
+            item_name=item_name,
+            parent_id=parent.id if parent else None,
+            level=level,
             budget_amount=budget_amount,
             is_active=True
         )
 
-        db.session.add(subrubro)
+        db.session.add(item)
         db.session.commit()
 
-        flash("Subrubro registrado correctamente.", "success")
-        return redirect(url_for("rubros.subrubros", rubro_id=rubro.id))
+        flash("Rubro registrado correctamente.", "success")
+        return redirect(url_for("rubros.index"))
 
-    return render_template(
-        "rubros/subrubro_form.html",
-        rubro=rubro,
-        subrubro=None,
-        modo="nuevo"
-    )
+    available_items = get_all_budget_items_sorted()
+    return render_template("rubros/form.html", item=None, modo="nuevo", available_items=available_items)
 
 
-@rubros_bp.route("/subrubros/editar/<int:subrubro_id>", methods=["GET", "POST"])
+@rubros_bp.route("/editar/<int:item_id>", methods=["GET", "POST"])
 @login_required
-def editar_subrubro(subrubro_id):
-    subrubro = Subcategory.query.get_or_404(subrubro_id)
-    rubro = subrubro.category
+def editar(item_id):
+    item = BudgetItem.query.get_or_404(item_id)
 
     if request.method == "POST":
-        name = request.form.get("name", "").strip().upper()
-        description = request.form.get("description", "").strip()
-        budget_text = request.form.get("budget_amount", "").strip()
-        budget_amount = parse_amount(budget_text)
+        item_code = normalize_code(request.form.get("item_code", ""))
+        item_name = request.form.get("item_name", "").strip().upper()
+        budget_amount = parse_amount(request.form.get("budget_amount", "").strip())
         is_active = True if request.form.get("is_active") == "on" else False
 
-        if not name:
-            flash("El nombre del subrubro es obligatorio.", "danger")
-            return redirect(url_for("rubros.editar_subrubro", subrubro_id=subrubro.id))
+        if not item_code or not item_name:
+            flash("El número y el nombre del rubro son obligatorios.", "danger")
+            return redirect(url_for("rubros.editar", item_id=item.id))
 
-        existing = Subcategory.query.filter(
-            Subcategory.category_id == rubro.id,
-            Subcategory.name == name,
-            Subcategory.id != subrubro.id
+        existing = BudgetItem.query.filter(
+            BudgetItem.item_code == item_code,
+            BudgetItem.id != item.id
         ).first()
 
         if existing:
-            flash("Otro subrubro ya tiene ese nombre dentro de este rubro.", "warning")
-            return redirect(url_for("rubros.editar_subrubro", subrubro_id=subrubro.id))
+            flash("Otro rubro ya tiene ese número.", "warning")
+            return redirect(url_for("rubros.editar", item_id=item.id))
 
-        subrubro.name = name
-        subrubro.description = description or None
-        subrubro.budget_amount = budget_amount
-        subrubro.is_active = is_active
+        level = get_level_from_code(item_code)
+        parent_code = get_parent_code(item_code)
+        parent = None
+
+        if parent_code:
+            parent = BudgetItem.query.filter_by(item_code=parent_code).first()
+
+            if not parent:
+                flash(
+                    f"No se puede guardar {item_code} porque no existe su padre {parent_code}.",
+                    "danger"
+                )
+                return redirect(url_for("rubros.editar", item_id=item.id))
+
+            if parent.id == item.id:
+                flash("Un rubro no puede ser su propio padre.", "danger")
+                return redirect(url_for("rubros.editar", item_id=item.id))
+
+        if parent:
+            current = parent
+            while current:
+                if current.id == item.id:
+                    flash("No puedes asignar como padre a uno de sus descendientes.", "danger")
+                    return redirect(url_for("rubros.editar", item_id=item.id))
+                current = current.parent
+
+        item.item_code = item_code
+        item.item_name = item_name
+        item.parent_id = parent.id if parent else None
+        item.level = level
+        item.budget_amount = budget_amount
+        item.is_active = is_active
 
         db.session.commit()
 
-        flash("Subrubro actualizado correctamente.", "success")
-        return redirect(url_for("rubros.subrubros", rubro_id=rubro.id))
+        flash("Rubro actualizado correctamente.", "success")
+        return redirect(url_for("rubros.index"))
 
-    return render_template(
-        "rubros/subrubro_form.html",
-        rubro=rubro,
-        subrubro=subrubro,
-        modo="editar"
-    )
+    available_items = get_all_budget_items_sorted()
+    return render_template("rubros/form.html", item=item, modo="editar", available_items=available_items)
 
 
-@rubros_bp.route("/subrubros/desactivar/<int:subrubro_id>", methods=["POST"])
+@rubros_bp.route("/desactivar/<int:item_id>", methods=["POST"])
 @login_required
-def desactivar_subrubro(subrubro_id):
-    subrubro = Subcategory.query.get_or_404(subrubro_id)
-    rubro_id = subrubro.category_id
-
-    subrubro.is_active = False
+def desactivar(item_id):
+    item = BudgetItem.query.get_or_404(item_id)
+    item.is_active = False
     db.session.commit()
 
-    flash("Subrubro desactivado correctamente.", "success")
-    return redirect(url_for("rubros.subrubros", rubro_id=rubro_id))
+    flash("Rubro desactivado correctamente.", "success")
+    return redirect(url_for("rubros.index"))
 
 
-@rubros_bp.route("/subrubros/activar/<int:subrubro_id>", methods=["POST"])
+@rubros_bp.route("/activar/<int:item_id>", methods=["POST"])
 @login_required
-def activar_subrubro(subrubro_id):
-    subrubro = Subcategory.query.get_or_404(subrubro_id)
-    rubro_id = subrubro.category_id
-
-    subrubro.is_active = True
+def activar(item_id):
+    item = BudgetItem.query.get_or_404(item_id)
+    item.is_active = True
     db.session.commit()
 
-    flash("Subrubro activado correctamente.", "success")
-    return redirect(url_for("rubros.subrubros", rubro_id=rubro_id))
+    flash("Rubro activado correctamente.", "success")
+    return redirect(url_for("rubros.index"))

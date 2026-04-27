@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
 {% block page_title %}Rubros{% endblock %}
-{% block page_subtitle %}Catálogo de rubros principales y sus subrubros{% endblock %}
+{% block page_subtitle %}Estructura jerárquica presupuestal por número de rubro{% endblock %}
 
 {% block content %}
 
 <div class="module-header">
     <div>
-        <h3>Catálogo de rubros</h3>
-        <p>Clasifica los registros por tipo de gasto, actividad o agrupación contable.</p>
+        <h3>Rubros jerárquicos</h3>
+        <p>Administra rubros y subrubros por estructura tipo árbol: 1, 1.1, 1.1.1, etc.</p>
     </div>
 
     <a href="{{ url_for('rubros.nuevo') }}" class="btn btn-success">
@@ -21,32 +21,89 @@
         <table class="table align-middle custom-table">
             <thead>
                 <tr>
-                    <th>Rubro</th>
-                    <th>Descripción</th>
-                    <th>Subrubros</th>
+                    <th>Número</th>
+                    <th>Nombre</th>
+                    <th>Padre</th>
+                    <th>Nivel</th>
+                    <th class="text-end">Presupuesto</th>
+                    <th class="text-end">Pagado</th>
+                    <th class="text-end">Pendiente</th>
+                    <th>Hijos</th>
+                    <th>Cuadre hijos</th>
                     <th>Estatus</th>
                     <th class="text-end">Acciones</th>
                 </tr>
             </thead>
 
             <tbody>
-                {% for rubro in rubros %}
+                {% for row in rows %}
+                    {% set item = row.item %}
                     <tr>
                         <td>
-                            <strong>{{ rubro.name }}</strong>
-                        </td>
-
-                        <td>{{ rubro.description or "Sin descripción" }}</td>
-
-                        <td>
-                            <a href="{{ url_for('rubros.subrubros', rubro_id=rubro.id) }}"
-                               class="link-soft">
-                                Ver subrubros
-                            </a>
+                            <strong>{{ item.item_code }}</strong>
                         </td>
 
                         <td>
-                            {% if rubro.is_active %}
+                            <div style="padding-left: {{ (item.level - 1) * 22 }}px;">
+                                {% if item.level > 1 %}
+                                    <span class="tree-branch">↳</span>
+                                {% endif %}
+                                {{ item.item_name }}
+                            </div>
+                        </td>
+
+                        <td>
+                            {% if item.parent %}
+                                {{ item.parent.item_code }} - {{ item.parent.item_name }}
+                            {% else %}
+                                <span class="text-muted">Raíz</span>
+                            {% endif %}
+                        </td>
+
+                        <td>{{ item.level }}</td>
+
+                        <td class="text-end">
+                            <strong>${{ "{:,.2f}".format(item.budget_amount) }}</strong>
+                        </td>
+
+                        <td class="text-end">
+                            <strong>${{ "{:,.2f}".format(row.paid) }}</strong>
+                        </td>
+
+                        <td class="text-end">
+                            {% if row.remaining < 0 %}
+                                <strong class="text-danger">-${{ "{:,.2f}".format(row.remaining * -1) }}</strong>
+                            {% else %}
+                                <strong>${{ "{:,.2f}".format(row.remaining) }}</strong>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.children|length > 0 %}
+                                <span class="status-pill neutral">{{ item.children|length }} hijo(s)</span>
+                            {% else %}
+                                <span class="text-muted">Sin hijos</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.children|length > 0 %}
+                                {% if row.is_budget_match %}
+                                    <span class="status-pill success">
+                                        Cuadra (${{ "{:,.2f}".format(row.children_budget_sum) }})
+                                    </span>
+                                {% else %}
+                                    <span class="status-pill danger">
+                                        No cuadra (${{ "{:,.2f}".format(row.children_budget_sum) }})
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="status-pill neutral">N/A</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.is_active %}
                                 <span class="status-pill active">Activo</span>
                             {% else %}
                                 <span class="status-pill inactive">Inactivo</span>
@@ -54,14 +111,14 @@
                         </td>
 
                         <td class="text-end">
-                            <a href="{{ url_for('rubros.editar', rubro_id=rubro.id) }}"
+                            <a href="{{ url_for('rubros.editar', item_id=item.id) }}"
                                class="btn btn-sm btn-outline-primary">
                                 Editar
                             </a>
 
-                            {% if rubro.is_active %}
+                            {% if item.is_active %}
                                 <form method="POST"
-                                      action="{{ url_for('rubros.desactivar', rubro_id=rubro.id) }}"
+                                      action="{{ url_for('rubros.desactivar', item_id=item.id) }}"
                                       class="d-inline">
                                     <button class="btn btn-sm btn-outline-danger" type="submit">
                                         Desactivar
@@ -69,7 +126,7 @@
                                 </form>
                             {% else %}
                                 <form method="POST"
-                                      action="{{ url_for('rubros.activar', rubro_id=rubro.id) }}"
+                                      action="{{ url_for('rubros.activar', item_id=item.id) }}"
                                       class="d-inline">
                                     <button class="btn btn-sm btn-outline-success" type="submit">
                                         Activar
@@ -80,7 +137,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-5">
+                        <td colspan="11" class="text-center text-muted py-5">
                             Todavía no hay rubros registrados.
                         </td>
                     </tr>

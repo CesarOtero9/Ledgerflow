@@ -15,11 +15,13 @@ def create_app():
     from app.proveedores.routes import proveedores_bp
     from app.rubros.routes import rubros_bp
     from app.registros.routes import registros_bp
+    from app.consultas.routes import consultas_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(proveedores_bp)
     app.register_blueprint(rubros_bp)
     app.register_blueprint(registros_bp)
+    app.register_blueprint(consultas_bp)
 
     return app

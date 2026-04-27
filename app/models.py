@@ -42,40 +42,37 @@ class Supplier(db.Model):
     documents = db.relationship("SupplierDocument", backref="supplier", lazy=True)
 
 
-class Category(db.Model):
-    __tablename__ = "categories"
+class BudgetItem(db.Model):
+    __tablename__ = "budget_items"
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(150), unique=True, nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    is_active = db.Column(db.Boolean, nullable=False, default=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
+    item_code = db.Column(db.String(50), unique=True, nullable=False)
+    item_name = db.Column(db.String(255), nullable=False)
 
-    subcategories = db.relationship("Subcategory", backref="category", lazy=True)
-    entries = db.relationship("Entry", backref="category", lazy=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey("budget_items.id"), nullable=True)
+    level = db.Column(db.Integer, nullable=False, default=1)
 
-
-class Subcategory(db.Model):
-    __tablename__ = "subcategories"
-
-    id = db.Column(db.Integer, primary_key=True)
-    category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=False)
-    name = db.Column(db.String(150), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-
-    # Presupuesto asignado al subrubro
     budget_amount = db.Column(db.Numeric(15, 2), nullable=False, default=0)
-
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
 
-    entries = db.relationship("Entry", backref="subcategory", lazy=True)
-
-    __table_args__ = (
-        db.UniqueConstraint("category_id", "name", name="uq_subcategory_per_category"),
+    parent = db.relationship(
+        "BudgetItem",
+        remote_side=[id],
+        backref=db.backref("children", lazy=True)
     )
+
+    entries = db.relationship("Entry", backref="budget_item", lazy=True)
+
+    @property
+    def is_root(self):
+        return self.parent_id is None
+
+    @property
+    def display_name(self):
+        return f"{self.item_code} - {self.item_name}"
 
 
 class Entry(db.Model):
@@ -91,8 +88,13 @@ class Entry(db.Model):
     application_year = db.Column(db.SmallInteger, nullable=False)
 
     supplier_id = db.Column(db.Integer, db.ForeignKey("suppliers.id"), nullable=False)
-    category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=False)
-    subcategory_id = db.Column(db.Integer, db.ForeignKey("subcategories.id"), nullable=True)
+
+    # Nuevo campo
+    budget_item_id = db.Column(db.Integer, db.ForeignKey("budget_items.id"), nullable=True)
+
+    # Campos viejos, se quedan temporalmente para transición
+    category_id = db.Column(db.Integer, nullable=True)
+    subcategory_id = db.Column(db.Integer, nullable=True)
 
     amount = db.Column(db.Numeric(15, 2), nullable=False)
 
