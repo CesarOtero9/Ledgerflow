@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block page_title %}Importar registros desde Excel{% endblock %}
+{% block page_subtitle %}Carga masiva de operaciones desde la primera hoja del archivo{% endblock %}
+
+{% block content %}
+
+<div class="panel">
+    <div class="form-section-title">
+        <h3>Archivo de carga</h3>
+        <p>
+            El sistema leerá la primera hoja del Excel. La fila 1 debe contener estos encabezados:
+            <strong>FECHA, MONTO, PROVEEDOR, RUBRO, FOLIO DE OPERACIÓN, CONCEPTO, COMENTARIOS</strong>.
+        </p>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label class="form-label">Selecciona archivo Excel *</label>
+                <input type="file"
+                       name="archivo_excel"
+                       class="form-control"
+                       accept=".xlsx,.xlsm"
+                       required>
+                <small class="text-muted">
+                    Formatos permitidos: .xlsx y .xlsm. No se guardará nada si existe algún proveedor o rubro no reconocido.
+                </small>
+            </div>
+        </div>
+
+        <div class="form-actions mt-4">
+            <a href="{{ url_for('registros.index') }}" class="btn btn-outline-secondary">
+                Cancelar
+            </a>
+
+            <button type="submit" class="btn btn-success">
+                Validar e importar
+            </button>
+        </div>
+    </form>
+</div>
+
+{% if errores %}
+    <div class="panel mt-4 border border-danger">
+        <div class="form-section-title">
+            <h3 class="text-danger">Excel rechazado</h3>
+            <p>
+                No se importó ningún registro. Corrige estos puntos y vuelve a cargar el archivo.
+            </p>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle custom-table">
+                <thead>
+                    <tr>
+                        <th>Fila</th>
+                        <th>Campo</th>
+                        <th>Valor detectado</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for error in errores %}
+                        <tr>
+                            <td><strong>{{ error.fila }}</strong></td>
+                            <td>{{ error.campo }}</td>
+                            <td>{{ error.valor or "N/A" }}</td>
+                            <td>{{ error.detalle }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+
+{% if vista_previa %}
+    <div class="panel mt-4">
+        <div class="form-section-title">
+            <h3>Registros importados</h3>
+            <p>Se guardaron correctamente {{ vista_previa|length }} operaciones.</p>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle custom-table">
+                <thead>
+                    <tr>
+                        <th>Clave</th>
+                        <th>Fecha</th>
+                        <th>Proveedor asociado</th>
+                        <th>Rubro asociado</th>
+                        <th class="text-end">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in vista_previa %}
+                        <tr>
+                            <td><strong>{{ item.unique_key }}</strong></td>
+                            <td>{{ item.fecha }}</td>
+                            <td>{{ item.proveedor }}</td>
+                            <td>{{ item.rubro }}</td>
+                            <td class="text-end"><strong>${{ item.monto }}</strong></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+
+{% endblock %}

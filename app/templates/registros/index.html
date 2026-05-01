@@ -11,9 +11,15 @@
         <p>Consulta las operaciones registradas por fecha, proveedor, rubro y monto.</p>
     </div>
 
-    <a href="{{ url_for('registros.nuevo') }}" class="btn btn-success">
-        + Nuevo registro
-    </a>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('registros.importar_excel') }}" class="btn btn-outline-success">
+            Importar Excel
+        </a>
+
+        <a href="{{ url_for('registros.nuevo') }}" class="btn btn-success">
+            + Nuevo registro
+        </a>
+    </div>
 </div>
 
 <div class="panel mt-4">

@@ -1883,3 +1883,847 @@ textarea.form-control {
         align-items: flex-start;
     }
 }
+
+.friendly-table thead th {
+    background: linear-gradient(135deg, rgba(31, 78, 120, 0.10), rgba(49, 135, 155, 0.08));
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: none;
+    padding: 12px 12px;
+}
+
+.friendly-table tbody tr:nth-child(odd) td {
+    background: rgba(255,255,255,0.82);
+}
+
+.friendly-table tbody tr:nth-child(even) td {
+    background: rgba(245,249,247,0.92);
+}
+
+.friendly-table tbody tr:hover td {
+    background: rgba(232, 242, 238, 0.96) !important;
+}
+
+.contadora-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: linear-gradient(135deg, rgba(31, 78, 120, 0.18), rgba(49, 135, 155, 0.12));
+    color: var(--blue);
+    font-weight: 950;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.contadora-table tbody tr:nth-child(odd) td {
+    background: rgba(255,255,255,0.88);
+}
+
+.contadora-table tbody tr:nth-child(even) td {
+    background: rgba(241,247,244,0.96);
+}
+
+.contadora-table tbody tr:hover td {
+    background: rgba(225, 237, 232, 0.98) !important;
+}
+
+.contadora-table td,
+.contadora-table th {
+    white-space: nowrap;
+    padding: 12px 12px;
+}
+
+.contadora-table td:first-child,
+.contadora-table th:first-child {
+    min-width: 90px;
+}
+
+.contadora-table td:nth-child(2),
+.contadora-table th:nth-child(2) {
+    min-width: 260px;
+}
+
+.contadora-table tfoot th {
+    background: linear-gradient(135deg, rgba(31, 78, 120, 0.18), rgba(49, 135, 155, 0.12));
+    color: var(--blue);
+    font-weight: 950;
+    border-top: 2px solid rgba(31, 78, 120, 0.16);
+    padding: 14px 12px;
+}
+
+.table-panel-header p,
+.module-header p {
+    max-width: 760px;
+}
+
+.export-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.export-btn i {
+    font-size: 15px;
+}
+
+.login-page-body {
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+.login-shell {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    position: relative;
+    z-index: 1;
+}
+
+.login-card-premium {
+    width: 100%;
+    max-width: 440px;
+    padding: 30px;
+    border-radius: 28px;
+    background: rgba(255,255,255,0.82);
+    border: 1px solid rgba(255,255,255,0.85);
+    box-shadow: 0 24px 50px rgba(31, 78, 120, 0.14);
+    backdrop-filter: blur(18px);
+}
+
+.login-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.login-brand h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 950;
+    color: var(--blue);
+}
+
+.login-brand p {
+    margin: 3px 0 0;
+    color: var(--muted);
+}
+
+.export-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.export-btn i {
+    font-size: 15px;
+}
+
+/* =========================
+   DASHBOARD ENHANCED MOTION
+========================= */
+.chart-panel {
+    isolation: isolate;
+}
+
+.chart-panel::before,
+.budget-health-card::before,
+.metric-card::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(135deg, rgba(122,169,151,0.18), transparent 30%, rgba(151,122,154,0.12));
+    opacity: 0;
+    transition: opacity 0.28s ease;
+    z-index: -1;
+}
+
+.chart-panel:hover::before,
+.budget-health-card:hover::before,
+.metric-card:hover::before {
+    opacity: 1;
+}
+
+.chart-panel:hover {
+    transform: translateY(-3px);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.metric-card strong {
+    font-variant-numeric: tabular-nums;
+}
+
+.budget-health-card {
+    animation: softBreath 4.6s ease-in-out infinite;
+}
+
+@keyframes softBreath {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+}
+
+.budget-progress-fill {
+    position: relative;
+    overflow: hidden;
+}
+
+.budget-progress-fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+    animation: progressShine 2.2s ease-in-out infinite;
+}
+
+@keyframes progressShine {
+    0% { transform: translateX(-100%); }
+    55%, 100% { transform: translateX(120%); }
+}
+
+.chart-title h4 {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chart-title h4::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--mint);
+    box-shadow: 0 0 12px rgba(122,169,151,0.85);
+}
+/* =========================================================
+   LEDGERFLOW DASHBOARD V2 - mejoras visuales y animaciones
+   Pégalo al final de app/static/css/styles.css
+========================================================= */
+
+.metric-card.premium {
+    isolation: isolate;
+    transform-style: preserve-3d;
+}
+
+.metric-card.premium::before {
+    background:
+        radial-gradient(circle at 18% 20%, rgba(122, 169, 151, 0.30), transparent 26%),
+        radial-gradient(circle at 90% 0%, rgba(151, 122, 154, 0.22), transparent 30%),
+        linear-gradient(135deg, rgba(255,255,255,0.72), rgba(247,250,248,0.46));
+}
+
+.metric-card.premium:hover {
+    transform: translateY(-7px) rotateX(1.2deg) rotateY(-1.2deg);
+}
+
+.metric-card.premium strong {
+    font-variant-numeric: tabular-nums;
+}
+
+.metric-card-budget {
+    background:
+        radial-gradient(circle at 15% 15%, rgba(255,255,255,0.88), transparent 24%),
+        linear-gradient(135deg, rgba(31,78,120,0.10), rgba(122,169,151,0.25)),
+        rgba(255,255,255,0.78);
+    border: 1px solid rgba(122,169,151,0.36);
+}
+
+.metric-card-budget::after {
+    content: "";
+    position: absolute;
+    inset: -70px auto auto -70px;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: rgba(122,169,151,0.22);
+    filter: blur(2px);
+    animation: budgetOrb 5.5s ease-in-out infinite alternate;
+    z-index: 0;
+}
+
+@keyframes budgetOrb {
+    from { transform: translate3d(0,0,0) scale(1); }
+    to { transform: translate3d(18px,12px,0) scale(1.15); }
+}
+
+.budget-health-card {
+    animation: softLift 0.55s cubic-bezier(.2,.8,.2,1) both;
+}
+
+@keyframes softLift {
+    from { opacity: 0; transform: translateY(18px) scale(0.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.budget-progress-fill {
+    position: relative;
+    overflow: hidden;
+}
+
+.budget-progress-fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+    transform: translateX(-100%);
+    animation: progressShine 2.4s ease-in-out infinite;
+}
+
+@keyframes progressShine {
+    0% { transform: translateX(-110%); }
+    55% { transform: translateX(120%); }
+    100% { transform: translateX(120%); }
+}
+
+.budget-route-panel {
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 12% 15%, rgba(122,169,151,0.22), transparent 28%),
+        radial-gradient(circle at 92% 12%, rgba(151,122,154,0.16), transparent 26%),
+        rgba(255,255,255,0.72);
+}
+
+.budget-route-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 18px;
+}
+
+.budget-route-header h3 {
+    margin: 0;
+    color: var(--blue);
+    font-weight: 950;
+    letter-spacing: -0.03em;
+}
+
+.budget-route-header p {
+    margin: 4px 0 0;
+    color: var(--muted);
+}
+
+.breadcrumb-flow {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.breadcrumb-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    text-decoration: none;
+    color: var(--blue);
+    background: rgba(255,255,255,0.82);
+    border: 1px solid rgba(73,108,112,0.14);
+    font-size: 12px;
+    font-weight: 850;
+    box-shadow: 0 8px 18px rgba(31,78,120,0.06);
+    transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
+}
+
+.breadcrumb-chip:hover {
+    transform: translateY(-2px);
+    color: var(--blue);
+    background: white;
+    box-shadow: 0 14px 26px rgba(31,78,120,0.12);
+}
+
+.breadcrumb-chip.active {
+    background: linear-gradient(135deg, var(--blue), var(--teal));
+    color: white;
+}
+
+.route-arrow {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.children-route-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 13px;
+}
+
+.child-route-card {
+    position: relative;
+    display: block;
+    text-decoration: none;
+    padding: 16px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid rgba(73,108,112,0.12);
+    color: var(--text);
+    overflow: hidden;
+    box-shadow: 0 10px 24px rgba(31,78,120,0.08);
+    transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+    animation: routeCardIn 0.45s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.child-route-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 38px rgba(31,78,120,0.15);
+    border-color: rgba(122,169,151,0.36);
+    color: var(--text);
+}
+
+.child-route-card::after {
+    content: "";
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    right: -56px;
+    top: -58px;
+    border-radius: 50%;
+    background: rgba(122,169,151,0.18);
+}
+
+.child-route-card strong {
+    position: relative;
+    z-index: 1;
+    display: block;
+    color: var(--blue);
+    font-size: 15px;
+    font-weight: 950;
+}
+
+.child-route-card span {
+    position: relative;
+    z-index: 1;
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.child-route-card .route-card-money {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--petrol);
+    font-weight: 850;
+}
+
+@keyframes routeCardIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.chart-panel {
+    position: relative;
+}
+
+.chart-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0;
+    background: linear-gradient(135deg, rgba(122,169,151,0.16), transparent 38%, rgba(151,122,154,0.10));
+    transition: opacity 0.22s ease;
+}
+
+.chart-panel:hover::before {
+    opacity: 1;
+}
+
+.chart-box {
+    position: relative;
+    z-index: 1;
+}
+
+.chart-box-tall {
+    height: 560px;
+}
+
+.premium-empty {
+    background:
+        radial-gradient(circle at 20% 20%, rgba(122,169,151,0.18), transparent 30%),
+        rgba(247,250,248,0.72);
+}
+
+@media (max-width: 900px) {
+    .budget-route-header {
+        flex-direction: column;
+    }
+
+    .children-route-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-box-tall {
+        height: 460px;
+    }
+}
+/* LedgerFlow Dashboard V3 extra styles
+   Pegar al final de app/static/css/styles.css
+*/
+
+.dashboard-hero-v3 {
+    isolation: isolate;
+}
+
+.dashboard-hero-v3::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    z-index: -1;
+    border-radius: 36px;
+    background: linear-gradient(120deg, rgba(122,169,151,0.42), rgba(49,135,155,0.22), rgba(151,122,154,0.28));
+    filter: blur(14px);
+    opacity: 0.42;
+    animation: premiumAura 5.5s ease-in-out infinite alternate;
+}
+
+@keyframes premiumAura {
+    from { transform: translate3d(-4px, 0, 0) scale(0.995); opacity: 0.28; }
+    to { transform: translate3d(5px, -4px, 0) scale(1.01); opacity: 0.55; }
+}
+
+.hero-glow-card-v3 strong {
+    font-size: 21px;
+    line-height: 1.15;
+}
+
+.filter-panel-v3 {
+    position: relative;
+    overflow: visible;
+}
+
+.budget-route-panel {
+    position: relative;
+    overflow: hidden;
+    border-radius: 30px;
+    padding: 24px;
+    background:
+        radial-gradient(circle at 12% 20%, rgba(122,169,151,0.22), transparent 30%),
+        radial-gradient(circle at 90% 12%, rgba(151,122,154,0.16), transparent 32%),
+        rgba(255,255,255,0.78);
+    border: 1px solid rgba(255,255,255,0.82);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+}
+
+.budget-route-panel::after {
+    content: "";
+    position: absolute;
+    width: 240px;
+    height: 240px;
+    right: -120px;
+    bottom: -120px;
+    border-radius: 50%;
+    background: rgba(49,135,155,0.11);
+    pointer-events: none;
+}
+
+.route-header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
+    margin-bottom: 16px;
+}
+
+.route-header h3 {
+    margin: 0;
+    color: var(--blue);
+    font-weight: 950;
+    letter-spacing: -0.04em;
+}
+
+.route-header p {
+    margin: 5px 0 0;
+    color: var(--muted);
+}
+
+.budget-path-explorer {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 4px 4px 10px;
+}
+
+.route-node {
+    min-width: 190px;
+    text-decoration: none;
+    color: var(--text);
+    border-radius: 20px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.74);
+    border: 1px solid rgba(73,108,112,0.12);
+    box-shadow: 0 12px 26px rgba(31,78,120,0.08);
+    transition: transform .22s ease, box-shadow .22s ease, background .22s ease;
+}
+
+.route-node:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 34px rgba(31,78,120,0.14);
+    background: white;
+}
+
+.route-node span {
+    display: inline-flex;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(122,169,151,0.16);
+    color: var(--petrol);
+    font-weight: 950;
+    font-size: 12px;
+}
+
+.route-node strong {
+    display: block;
+    margin-top: 8px;
+    color: var(--blue);
+    font-size: 13px;
+    line-height: 1.2;
+}
+
+.route-node small {
+    display: block;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 750;
+}
+
+.route-node-active {
+    background: linear-gradient(135deg, rgba(31,78,120,0.96), rgba(49,135,155,0.90));
+    color: white;
+}
+
+.route-node-active span {
+    background: rgba(255,255,255,0.18);
+    color: white;
+}
+
+.route-node-active strong,
+.route-node-active small {
+    color: white;
+}
+
+.route-arrow {
+    align-self: center;
+    color: var(--teal);
+    opacity: .75;
+}
+
+.budget-route-empty {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--muted);
+}
+
+.budget-children-explorer {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+    gap: 14px;
+}
+
+.budget-child-card,
+.child-empty-card {
+    text-decoration: none;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-radius: 22px;
+    padding: 16px;
+    background: rgba(255,255,255,0.76);
+    border: 1px solid rgba(73,108,112,0.12);
+    box-shadow: 0 12px 26px rgba(31,78,120,0.08);
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    min-height: 150px;
+}
+
+.budget-child-card:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 20px 38px rgba(31,78,120,0.16);
+    border-color: rgba(49,135,155,0.28);
+}
+
+.child-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.child-card-top span {
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(122,169,151,0.15);
+    color: var(--petrol);
+    font-weight: 950;
+    font-size: 12px;
+}
+
+.child-card-top em {
+    font-style: normal;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.budget-child-card strong,
+.child-empty-card strong {
+    color: var(--blue);
+    font-size: 15px;
+    line-height: 1.2;
+}
+
+.child-card-values {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.child-card-values small {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.child-card-values b {
+    display: block;
+    color: var(--text);
+    font-size: 12px;
+}
+
+.mini-progress {
+    height: 8px;
+}
+
+.child-card-percent {
+    font-size: 12px;
+    font-weight: 950;
+    color: var(--blue);
+}
+
+.budget-child-card.warning {
+    border-color: rgba(199,127,127,0.22);
+}
+
+.budget-child-card.danger {
+    border-color: rgba(186,98,98,0.30);
+}
+
+.metric-card-v3 {
+    transform-style: preserve-3d;
+}
+
+.metric-card-v3::after {
+    animation: cardOrb 4s ease-in-out infinite alternate;
+}
+
+@keyframes cardOrb {
+    from { transform: translate3d(0,0,0) scale(1); opacity: .65; }
+    to { transform: translate3d(-8px,10px,0) scale(1.15); opacity: .95; }
+}
+
+.chart-panel-v3 {
+    transition: transform .24s ease, box-shadow .24s ease;
+}
+
+.chart-panel-v3:hover {
+    transform: translateY(-3px);
+}
+
+.chart-panel-v3 .chart-title h4::after {
+    content: "";
+    display: block;
+    width: 46px;
+    height: 3px;
+    margin-top: 7px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--mint), var(--teal), var(--lavender));
+}
+
+.empty-chart-v3 {
+    min-height: 310px;
+}
+
+.budget-health-card-v3 {
+    animation: healthFloat 4.5s ease-in-out infinite alternate;
+}
+
+@keyframes healthFloat {
+    from { transform: translateY(0); }
+    to { transform: translateY(-3px); }
+}
+
+@media (max-width: 900px) {
+    .budget-path-explorer {
+        align-items: stretch;
+    }
+
+    .route-node {
+        min-width: 170px;
+    }
+
+    .budget-children-explorer {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* =========================================================
+   LEDGERFLOW DASHBOARD V4 - dona ejecutiva + lectura limpia
+   Agregar al final de app/static/css/styles.css
+========================================================= */
+#categoryChart .slice path {
+    transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+#categoryChart:hover .slice path {
+    filter: drop-shadow(0 8px 14px rgba(31, 78, 120, 0.16));
+}
+
+.chart-panel:has(#categoryChart) {
+    background:
+        radial-gradient(circle at 18% 18%, rgba(122,169,151,0.16), transparent 28%),
+        radial-gradient(circle at 90% 8%, rgba(151,122,154,0.12), transparent 28%),
+        rgba(255,255,255,0.78);
+}
+
+.metric-card-budget strong::after {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-left: 8px;
+    border-radius: 999px;
+    background: var(--mint);
+    box-shadow: 0 0 14px rgba(122,169,151,0.95);
+    animation: budgetDotPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes budgetDotPulse {
+    0%, 100% { transform: scale(1); opacity: 0.72; }
+    50% { transform: scale(1.42); opacity: 1; }
+}

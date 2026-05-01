@@ -3,10 +3,12 @@ from datetime import datetime
 
 from flask import Blueprint, render_template, request
 from flask_login import login_required
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from app.extensions import db
 from app.models import Entry, Supplier, BudgetItem
+from app.services.dashboard_budget_helpers import build_dashboard_budget_payload
+
 
 main_bp = Blueprint("main", __name__)
 
@@ -88,6 +90,7 @@ def dashboard():
     selected_month = safe_int(request.args.get("month"))
     selected_budget_item_id = safe_int(request.args.get("budget_item_id"))
     selected_supplier_id = safe_int(request.args.get("supplier_id"))
+    selected_budget_code = request.args.get("budget_code")
 
     current_year = datetime.now().year
 
@@ -106,13 +109,27 @@ def dashboard():
         .all()
     )
 
-    budget_items = (
+    # ------------------------------------------------------------
+    # 1. OBTENER TODOS LOS RUBROS
+    # ------------------------------------------------------------
+    all_budget_items = (
         BudgetItem.query
         .filter_by(is_active=True)
         .order_by(BudgetItem.item_code.asc())
         .all()
     )
 
+    # Forzar inclusión del rubro seleccionado por ID, por si no estuviera en la lista.
+    if selected_budget_item_id:
+        selected_item = BudgetItem.query.get(selected_budget_item_id)
+        if selected_item:
+            if not any(item.id == selected_item.id for item in all_budget_items):
+                all_budget_items.append(selected_item)
+
+    # ------------------------------------------------------------
+    # 2. FILTROS GENERALES PARA ENTRY
+    # Año, mes y proveedor. El rubro jerárquico lo resuelve el helper.
+    # ------------------------------------------------------------
     entry_filters = []
 
     if selected_year:
@@ -121,34 +138,59 @@ def dashboard():
     if selected_month:
         entry_filters.append(Entry.application_month_number == selected_month)
 
-    if selected_budget_item_id:
-        entry_filters.append(Entry.budget_item_id == selected_budget_item_id)
-
     if selected_supplier_id:
         entry_filters.append(Entry.supplier_id == selected_supplier_id)
 
-    budget_query = BudgetItem.query.filter(BudgetItem.is_active == True)
+    filtered_entries = Entry.query.filter(*entry_filters).all()
 
-    if selected_budget_item_id:
-        selected_item = BudgetItem.query.get(selected_budget_item_id)
-        if selected_item:
-            # Incluye el nodo seleccionado y todos sus descendientes por prefijo
-            budget_query = budget_query.filter(
-                BudgetItem.item_code == selected_item.item_code
-            )
-    else:
-        selected_item = None
-
-    total_paid = (
-        db.session.query(func.coalesce(func.sum(Entry.amount), 0))
-        .filter(*entry_filters)
-        .scalar()
+    # ------------------------------------------------------------
+    # 3. LLAMAR AL HELPER JERÁRQUICO
+    # ------------------------------------------------------------
+    payload = build_dashboard_budget_payload(
+        all_items=all_budget_items,
+        filtered_entries=filtered_entries,
+        selected_budget_item_id=selected_budget_item_id,
+        selected_budget_code=selected_budget_code,
     )
 
-    total_entries = (
-        db.session.query(func.count(Entry.id))
-        .filter(*entry_filters)
-        .scalar()
+    budget_summary = payload["budget_summary"]
+    subcategory_breakdown = payload["subcategory_breakdown"]
+    subcategory_budget_chart = payload["subcategory_budget_chart"]
+    monthly_chart = payload["monthly_chart"]
+    category_chart = payload["category_chart"]
+    supplier_3d_chart = payload["supplier_3d_chart"]
+    surface_3d_chart = payload["surface_3d_chart"]
+    budget_path_nav = payload["budget_path_nav"]
+    budget_children_nav = payload["budget_children_nav"]
+    total_entries = payload["total_entries"]
+
+    # ------------------------------------------------------------
+    # 4. ÚLTIMOS REGISTROS FILTRADOS
+    # Ahora respeta también la rama presupuestal activa.
+    # Ejemplo:
+    # budget_code=13.2 trae registros de:
+    # 13.2, 13.2.1, 13.2.2, 13.2.3...
+    # ------------------------------------------------------------
+    latest_entry_filters = list(entry_filters)
+
+    selected_code_for_latest = budget_summary.get("selected_code")
+
+    if selected_code_for_latest:
+        latest_entry_filters.append(
+            or_(
+                BudgetItem.item_code == selected_code_for_latest,
+                BudgetItem.item_code.like(f"{selected_code_for_latest}.%")
+            )
+        )
+
+    latest_entries = (
+        Entry.query
+        .join(Supplier, Entry.supplier_id == Supplier.id)
+        .outerjoin(BudgetItem, Entry.budget_item_id == BudgetItem.id)
+        .filter(*latest_entry_filters)
+        .order_by(Entry.application_date.desc(), Entry.id.desc())
+        .limit(8)
+        .all()
     )
 
     total_suppliers_used = (
@@ -163,241 +205,42 @@ def dashboard():
         .scalar()
     )
 
-    total_budget = (
-        db.session.query(func.coalesce(func.sum(BudgetItem.budget_amount), 0))
-        .select_from(BudgetItem)
-        .filter(BudgetItem.is_active == True)
-        .filter(
-            BudgetItem.id == selected_budget_item_id if selected_budget_item_id else True
-        )
-        .scalar()
-    )
-
-    total_budget_float = money_to_float(total_budget)
-    total_paid_float = money_to_float(total_paid)
-    total_remaining = total_budget_float - total_paid_float
-
-    if total_budget_float > 0:
-        budget_percentage = round((total_paid_float / total_budget_float) * 100, 2)
-    else:
-        budget_percentage = 0
-
-    budget_status = get_budget_status(budget_percentage)
-
-    latest_entries = (
-        Entry.query
-        .join(Supplier, Entry.supplier_id == Supplier.id)
-        .outerjoin(BudgetItem, Entry.budget_item_id == BudgetItem.id)
-        .filter(*entry_filters)
-        .order_by(Entry.application_date.desc(), Entry.id.desc())
-        .limit(8)
-        .all()
-    )
-
-    monthly_rows = (
-        db.session.query(
-            Entry.application_year,
-            Entry.application_month_number,
-            Entry.application_month,
-            func.coalesce(func.sum(Entry.amount), 0).label("total")
-        )
-        .filter(*entry_filters)
-        .group_by(
-            Entry.application_year,
-            Entry.application_month_number,
-            Entry.application_month
-        )
-        .order_by(
-            Entry.application_year.asc(),
-            Entry.application_month_number.asc()
-        )
-        .all()
-    )
-
-    monthly_chart = {
-        "labels": [f"{row.application_month[:3]} {row.application_year}" for row in monthly_rows],
-        "values": [money_to_float(row.total) for row in monthly_rows]
-    }
-
-    budget_item_rows = (
-        db.session.query(
-            BudgetItem.item_code,
-            BudgetItem.item_name,
-            func.coalesce(func.sum(Entry.amount), 0).label("total")
-        )
-        .join(Entry, Entry.budget_item_id == BudgetItem.id)
-        .filter(*entry_filters)
-        .group_by(BudgetItem.item_code, BudgetItem.item_name)
-        .order_by(func.sum(Entry.amount).desc())
-        .all()
-    )
-
-    category_chart = {
-        "labels": [f"{row.item_code} - {row.item_name}" for row in budget_item_rows],
-        "values": [money_to_float(row.total) for row in budget_item_rows]
-    }
-
-    supplier_rows = (
-        db.session.query(
-            Supplier.business_name,
-            func.count(Entry.id).label("operations"),
-            func.coalesce(func.sum(Entry.amount), 0).label("total"),
-            func.coalesce(func.avg(Entry.amount), 0).label("average")
-        )
-        .join(Entry, Entry.supplier_id == Supplier.id)
-        .filter(*entry_filters)
-        .group_by(Supplier.business_name)
-        .order_by(func.sum(Entry.amount).desc())
-        .limit(15)
-        .all()
-    )
-
-    supplier_3d_chart = {
-        "suppliers": [row.business_name for row in supplier_rows],
-        "operations": [int(row.operations) for row in supplier_rows],
-        "totals": [money_to_float(row.total) for row in supplier_rows],
-        "averages": [money_to_float(row.average) for row in supplier_rows],
-    }
-
-    month_item_rows = (
-        db.session.query(
-            Entry.application_year,
-            Entry.application_month_number,
-            Entry.application_month,
-            BudgetItem.item_name,
-            func.coalesce(func.sum(Entry.amount), 0).label("total")
-        )
-        .join(BudgetItem, Entry.budget_item_id == BudgetItem.id)
-        .filter(*entry_filters)
-        .group_by(
-            Entry.application_year,
-            Entry.application_month_number,
-            Entry.application_month,
-            BudgetItem.item_name
-        )
-        .order_by(
-            Entry.application_year.asc(),
-            Entry.application_month_number.asc(),
-            BudgetItem.item_name.asc()
-        )
-        .all()
-    )
-
-    unique_months = []
-    unique_items = []
-
-    for row in month_item_rows:
-        month_label = f"{row.application_month[:3]} {row.application_year}"
-        if month_label not in unique_months:
-            unique_months.append(month_label)
-        if row.item_name not in unique_items:
-            unique_items.append(row.item_name)
-
-    z_matrix = []
-    for item_name in unique_items:
-        item_values = []
-        for month in unique_months:
-            total_value = 0.0
-            for row in month_item_rows:
-                row_month_label = f"{row.application_month[:3]} {row.application_year}"
-                if row_month_label == month and row.item_name == item_name:
-                    total_value = money_to_float(row.total)
-                    break
-            item_values.append(total_value)
-        z_matrix.append(item_values)
-
-    surface_3d_chart = {
-        "months": unique_months,
-        "categories": unique_items,
-        "z": z_matrix
-    }
-
-    breakdown_items = (
-        BudgetItem.query
-        .filter(BudgetItem.is_active == True)
-        .order_by(BudgetItem.item_code.asc())
-        .all()
-    )
-
-    subcategory_breakdown = []
-
-    for item in breakdown_items:
-        paid_filters_for_item = list(entry_filters)
-        paid_filters_for_item = [
-            f for f in paid_filters_for_item
-            if "entries.budget_item_id" not in str(f)
-        ]
-
-        paid_amount = (
-            db.session.query(func.coalesce(func.sum(Entry.amount), 0))
-            .filter(*paid_filters_for_item)
-            .filter(Entry.budget_item_id == item.id)
-            .scalar()
-        )
-
-        budget = money_to_float(item.budget_amount)
-        paid = money_to_float(paid_amount)
-        remaining = budget - paid
-
-        if budget > 0:
-            percentage = round((paid / budget) * 100, 2)
-        else:
-            percentage = 0
-
-        status = get_budget_status(percentage)
-
-        subcategory_breakdown.append({
-            "category_name": item.item_code,
-            "subcategory_name": item.item_name,
-            "budget": budget,
-            "paid": paid,
-            "remaining": remaining,
-            "percentage": percentage,
-            "status_label": status["label"],
-            "status_class": status["class"],
-        })
-
-    subcategory_budget_chart = {
-        "labels": [f'{item["category_name"]} - {item["subcategory_name"]}' for item in subcategory_breakdown],
-        "budgets": [item["budget"] for item in subcategory_breakdown],
-        "paids": [item["paid"] for item in subcategory_breakdown],
-        "percentages": [item["percentage"] for item in subcategory_breakdown],
-    }
-
-    budget_summary = {
-        "total_budget": total_budget_float,
-        "total_paid": total_paid_float,
-        "total_remaining": total_remaining,
-        "percentage": budget_percentage,
-        "status_label": budget_status["label"],
-        "status_class": budget_status["class"],
-        "status_message": budget_status["message"],
-    }
-
     filters = {
         "year": selected_year,
         "month": selected_month,
         "budget_item_id": selected_budget_item_id,
+        "budget_code": selected_budget_code,
         "supplier_id": selected_supplier_id,
     }
 
+    # ------------------------------------------------------------
+    # 5. RENDERIZAR DASHBOARD
+    # ------------------------------------------------------------
     return render_template(
         "dashboard.html",
-        total_amount=total_paid_float,
-        total_entries=total_entries,
-        total_suppliers_used=total_suppliers_used,
-        total_categories_used=total_budget_items_used,
-        latest_entries=latest_entries,
+
+        # Navegación jerárquica
+        budget_path_nav=budget_path_nav,
+        budget_children_nav=budget_children_nav,
+
+        # Datos principales del helper
+        budget_summary=budget_summary,
+        subcategory_breakdown=subcategory_breakdown,
+        subcategory_budget_chart=subcategory_budget_chart,
         monthly_chart=monthly_chart,
         category_chart=category_chart,
         supplier_3d_chart=supplier_3d_chart,
         surface_3d_chart=surface_3d_chart,
-        subcategory_budget_chart=subcategory_budget_chart,
-        budget_summary=budget_summary,
-        subcategory_breakdown=subcategory_breakdown,
+        total_entries=total_entries,
+
+        # Variables adicionales
+        total_amount=budget_summary["total_paid"],
+        total_suppliers_used=total_suppliers_used,
+        total_categories_used=total_budget_items_used,
+        latest_entries=latest_entries,
         filters=filters,
         available_years=available_years,
         months=MESES_ES,
         suppliers=suppliers,
-        budget_items=budget_items,
+        budget_items=all_budget_items,
     )

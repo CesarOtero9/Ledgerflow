@@ -8,7 +8,7 @@
 <div class="module-header">
     <div>
         <h3>Consulta por proveedor</h3>
-        <p>Filtra por proveedor, meses y año para obtener un resumen imprimible tipo Excel.</p>
+        <p>Filtra por proveedor, meses y año para obtener un resumen claro y fácil de revisar.</p>
     </div>
 </div>
 
@@ -52,11 +52,18 @@
             <div class="filter-actions">
                 <button type="submit" class="btn btn-success w-100">
                     <i class="fa-solid fa-filter"></i>
-                    Aplicar
+                    Aplicar filtros
+                </button>
+
+                <button type="submit"
+                        formaction="{{ url_for('consultas.export_excel_proveedores') }}"
+                        class="btn btn-outline-success w-100 export-btn">
+                    <i class="fa-solid fa-file-excel"></i>
+                    Generar Excel
                 </button>
 
                 <a href="{{ url_for('consultas.proveedores') }}" class="btn btn-outline-secondary w-100">
-                    Limpiar
+                    Restablecer vista
                 </a>
             </div>
         </div>
@@ -71,15 +78,15 @@
     </div>
 
     <div class="metric-card premium">
-        <span>Presupuesto raíz relacionado</span>
-        <strong>${{ "{:,.2f}".format(total_budget) }}</strong>
-        <small>Raíces presupuestales involucradas</small>
+        <span>Rubro contenedor inmediato</span>
+        <strong style="font-size: 18px;">{{ related_budget_name }}</strong>
+        <small>Presupuesto: ${{ "{:,.2f}".format(total_budget) }}</small>
     </div>
 
     <div class="metric-card premium">
         <span>% cubierto</span>
         <strong>{{ covered_percentage }}%</strong>
-        <small>Pagado / presupuesto raíz</small>
+        <small>Pagado / presupuesto contenedor</small>
     </div>
 
     <div class="metric-card premium">
@@ -98,7 +105,7 @@
     </div>
 
     <div class="table-responsive mt-3">
-        <table class="table align-middle custom-table">
+        <table class="table align-middle custom-table friendly-table">
             <thead>
                 <tr>
                     <th>Proveedor</th>
@@ -128,63 +135,13 @@
 <div class="panel mt-4">
     <div class="table-panel-header">
         <div>
-            <h3>Impacto presupuestal en cadena</h3>
-            <p>El pago afecta al rubro directo y a todos sus padres.</p>
-        </div>
-    </div>
-
-    <div class="table-responsive mt-3">
-        <table class="table align-middle custom-table">
-            <thead>
-                <tr>
-                    <th>Número</th>
-                    <th>Rubro</th>
-                    <th class="text-end">Presupuesto</th>
-                    <th class="text-end">Pagado acumulado</th>
-                    <th class="text-end">Pendiente</th>
-                    <th class="text-end">% cubierto</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in chain_summary %}
-                    <tr>
-                        <td><strong>{{ item.item_code }}</strong></td>
-                        <td style="padding-left: {{ (item.level - 1) * 18 }}px;">
-                            {{ item.item_name }}
-                        </td>
-                        <td class="text-end">${{ "{:,.2f}".format(item.budget) }}</td>
-                        <td class="text-end">${{ "{:,.2f}".format(item.paid) }}</td>
-                        <td class="text-end">
-                            {% if item.remaining < 0 %}
-                                <span class="text-danger">-${{ "{:,.2f}".format(item.remaining * -1) }}</span>
-                            {% else %}
-                                ${{ "{:,.2f}".format(item.remaining) }}
-                            {% endif %}
-                        </td>
-                        <td class="text-end">{{ item.percentage }}%</td>
-                    </tr>
-                {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-5">
-                            No hay impacto presupuestal para los filtros seleccionados.
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<div class="panel mt-4">
-    <div class="table-panel-header">
-        <div>
             <h3>Detalle de movimientos</h3>
             <p>Fecha, proveedor, rubro, monto y concepto.</p>
         </div>
     </div>
 
     <div class="table-responsive mt-3">
-        <table class="table align-middle custom-table">
+        <table class="table align-middle custom-table friendly-table">
             <thead>
                 <tr>
                     <th>Fecha</th>

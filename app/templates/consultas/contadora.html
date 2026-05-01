@@ -41,11 +41,18 @@
             <div class="filter-actions">
                 <button type="submit" class="btn btn-success w-100">
                     <i class="fa-solid fa-filter"></i>
-                    Aplicar
+                    Aplicar filtros
+                </button>
+
+                <button type="submit"
+                        formaction="{{ url_for('consultas.export_excel_contadora') }}"
+                        class="btn btn-outline-success w-100 export-btn">
+                    <i class="fa-solid fa-file-excel"></i>
+                    Generar Excel
                 </button>
 
                 <a href="{{ url_for('consultas.contadora') }}" class="btn btn-outline-secondary w-100">
-                    Limpiar
+                    Restablecer vista
                 </a>
             </div>
         </div>
@@ -87,7 +94,7 @@
     </div>
 
     <div class="table-responsive mt-3">
-        <table class="table align-middle custom-table contadora-table">
+        <table class="table align-middle custom-table contadora-table friendly-table">
             <thead>
                 <tr>
                     <th>Número</th>

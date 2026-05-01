@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block page_title %}Dashboard{% endblock %}
-{% block page_subtitle %}Control presupuestal, filtros dinámicos y visualizaciones ejecutivas{% endblock %}
+{% block page_subtitle %}Control presupuestal jerárquico, filtros dinámicos y visualizaciones ejecutivas{% endblock %}
 
 {% block content %}
 
@@ -10,7 +10,8 @@
         <span class="eyebrow">LedgerFlow Analytics</span>
         <h3>Centro de control presupuestal</h3>
         <p>
-            Filtra por periodo, rubro jerárquico o proveedor para revisar presupuesto, pagos y porcentaje cubierto.
+            Filtra por periodo, proveedor o rubro jerárquico. Si eliges un rubro padre,
+            el presupuesto, pagado, pendiente y avance se calculan con todos sus hijos.
         </p>
     </div>
 
@@ -29,9 +30,7 @@
                 <select name="year" class="form-select select2-field">
                     <option value="">Todos</option>
                     {% for year in available_years %}
-                        <option value="{{ year }}" {% if filters.year == year %}selected{% endif %}>
-                            {{ year }}
-                        </option>
+                        <option value="{{ year }}" {% if filters.year == year %}selected{% endif %}>{{ year }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -41,9 +40,7 @@
                 <select name="month" class="form-select select2-field">
                     <option value="">Todos</option>
                     {% for number, name in months.items() %}
-                        <option value="{{ number }}" {% if filters.month == number %}selected{% endif %}>
-                            {{ name }}
-                        </option>
+                        <option value="{{ number }}" {% if filters.month == number %}selected{% endif %}>{{ name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -74,16 +71,76 @@
 
             <div class="filter-actions">
                 <button type="submit" class="btn btn-success w-100">
-                    <i class="fa-solid fa-filter"></i>
-                    Aplicar
+                    <i class="fa-solid fa-filter"></i> Aplicar
                 </button>
-
-                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary w-100">
-                    Limpiar
-                </a>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary w-100">Limpiar</a>
             </div>
         </div>
     </form>
+</div>
+
+<div class="panel mt-4 budget-route-panel">
+    <div class="budget-route-header">
+        <div>
+            <h3>Ruta interactiva del presupuesto</h3>
+            <p>
+                Entra a un rubro para ver sus hijos directos. Los padres heredan presupuesto y pagos de toda su cadena.
+            </p>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('main.dashboard', year=filters.year, month=filters.month, supplier_id=filters.supplier_id) }}">
+            Ver raíces
+        </a>
+    </div>
+
+    <div class="breadcrumb-flow">
+        <a class="breadcrumb-chip {% if not budget_summary.selected_code %}active{% endif %}"
+           href="{{ url_for('main.dashboard', year=filters.year, month=filters.month, supplier_id=filters.supplier_id) }}">
+            <i class="fa-solid fa-house"></i> Todos
+        </a>
+
+        {% for node in budget_path_nav %}
+            <span class="route-arrow"><i class="fa-solid fa-chevron-right"></i></span>
+            <a class="breadcrumb-chip {% if loop.last %}active{% endif %}"
+               href="{{ url_for('main.dashboard', year=filters.year, month=filters.month, supplier_id=filters.supplier_id, budget_code=node.code) }}">
+                {{ node.code }}
+            </a>
+        {% endfor %}
+    </div>
+
+
+    {% if budget_direct_node and budget_direct_node.show %}
+        <div class="hint-card mb-3">
+            <h4>Pagos directos en {{ budget_direct_node.code }}{% if budget_direct_node.name %} - {{ budget_direct_node.name }}{% endif %}</h4>
+            <ul>
+                <li>Total registrado directo en este nodo: <strong>${{ "{:,.2f}".format(budget_direct_node.paid) }}</strong></li>
+                <li>{{ budget_direct_node.message }}</li>
+            </ul>
+        </div>
+    {% endif %}
+
+    {% if budget_children_nav %}
+        <div class="children-route-grid">
+            {% for child in budget_children_nav %}
+                <a class="child-route-card" style="animation-delay: {{ loop.index0 * 45 }}ms;"
+                   href="{{ url_for('main.dashboard', year=filters.year, month=filters.month, supplier_id=filters.supplier_id, budget_code=child.code) }}">
+                    <strong>{{ child.code }} - {{ child.name }}</strong>
+                    <span>{{ child.children_count }} hijos directos</span>
+                    <div class="route-card-money">
+                        <div>Presupuesto: ${{ "{:,.2f}".format(child.budget) }}</div>
+                        <div>Pagado: ${{ "{:,.2f}".format(child.paid) }}</div>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="hint-card">
+            <h4>Este rubro no tiene hijos directos</h4>
+            <ul>
+                <li>El cálculo se está haciendo sobre el rubro seleccionado.</li>
+                <li>Si después agregas subrubros, el padre los absorberá automáticamente.</li>
+            </ul>
+        </div>
+    {% endif %}
 </div>
 
 <div class="budget-health-card mt-4 {{ budget_summary.status_class }}">
@@ -97,39 +154,38 @@
         <strong>{{ budget_summary.percentage }}%</strong>
         <div class="budget-progress">
             <div class="budget-progress-fill {{ budget_summary.status_class }}"
-                 style="width: {% if budget_summary.percentage > 100 %}100{% else %}{{ budget_summary.percentage }}{% endif %}%;">
-            </div>
+                 style="width: {% if budget_summary.percentage > 100 %}100{% else %}{{ budget_summary.percentage }}{% endif %}%;"></div>
         </div>
     </div>
 </div>
 
 <div class="cards-grid mt-4">
-    <div class="metric-card premium">
+    <div class="metric-card premium metric-card-budget">
         <span>Presupuesto</span>
-        <strong>${{ "{:,.2f}".format(budget_summary.total_budget) }}</strong>
-        <small>Rubros seleccionados</small>
+        <strong data-count-to="{{ budget_summary.total_budget }}" data-money="1">${{ "{:,.2f}".format(budget_summary.total_budget) }}</strong>
+        <small>Rama presupuestal activa</small>
     </div>
 
     <div class="metric-card premium">
         <span>Pagado</span>
-        <strong>${{ "{:,.2f}".format(budget_summary.total_paid) }}</strong>
-        <small>Registros filtrados</small>
+        <strong data-count-to="{{ budget_summary.total_paid }}" data-money="1">${{ "{:,.2f}".format(budget_summary.total_paid) }}</strong>
+        <small>Movimientos de la rama activa</small>
     </div>
 
     <div class="metric-card premium">
         <span>Pendiente</span>
         {% if budget_summary.total_remaining < 0 %}
-            <strong class="text-danger">-${{ "{:,.2f}".format(budget_summary.total_remaining * -1) }}</strong>
+            <strong class="text-danger" data-count-to="{{ budget_summary.total_remaining * -1 }}" data-money="1">-${{ "{:,.2f}".format(budget_summary.total_remaining * -1) }}</strong>
             <small>Presupuesto excedido</small>
         {% else %}
-            <strong>${{ "{:,.2f}".format(budget_summary.total_remaining) }}</strong>
+            <strong data-count-to="{{ budget_summary.total_remaining }}" data-money="1">${{ "{:,.2f}".format(budget_summary.total_remaining) }}</strong>
             <small>Saldo presupuestal</small>
         {% endif %}
     </div>
 
     <div class="metric-card premium">
         <span>Registros</span>
-        <strong>{{ total_entries }}</strong>
+        <strong data-count-to="{{ total_entries }}">{{ total_entries }}</strong>
         <small>Operaciones filtradas</small>
     </div>
 </div>
@@ -142,18 +198,16 @@
                 <p>Porcentaje pagado contra presupuesto disponible.</p>
             </div>
         </div>
-
         <div id="budgetGaugeChart" class="chart-box chart-box-sm"></div>
     </div>
 
     <div class="chart-panel">
         <div class="chart-title">
             <div>
-                <h4>Presupuesto vs pagado</h4>
-                <p>Comparativo general según filtros activos.</p>
+                <h4>Presupuesto vs pagado 3D</h4>
+                <p>Comparativo ejecutivo según filtros activos.</p>
             </div>
         </div>
-
         <div id="budgetComparisonChart" class="chart-box chart-box-sm"></div>
     </div>
 </div>
@@ -162,11 +216,10 @@
     <div class="chart-title">
         <div>
             <h4>Avance por rubro</h4>
-            <p>Presupuesto, pagado y porcentaje cubierto de cada rubro mostrado.</p>
+            <p>Vista horizontal ordenada. Si hay demasiados rubros, agrupa los menores para que no se amontonen.</p>
         </div>
     </div>
-
-    <div id="subcategoryBudgetChart" class="chart-box chart-box-sm"></div>
+    <div id="subcategoryBudgetChart" class="chart-box chart-box-tall"></div>
 </div>
 
 <div class="dashboard-grid mt-4">
@@ -177,7 +230,6 @@
                 <p>Identifica picos de gasto por rubro y periodo.</p>
             </div>
         </div>
-
         <div id="surface3dChart" class="chart-box chart-box-lg"></div>
     </div>
 
@@ -188,7 +240,6 @@
                 <p>Operaciones, monto total y promedio.</p>
             </div>
         </div>
-
         <div id="supplier3dChart" class="chart-box chart-box-md"></div>
     </div>
 </div>
@@ -201,18 +252,16 @@
                 <p>Tendencia mensual de registros filtrados.</p>
             </div>
         </div>
-
         <div id="monthlyChart" class="chart-box chart-box-sm"></div>
     </div>
 
     <div class="chart-panel">
         <div class="chart-title">
             <div>
-                <h4>Total por rubro</h4>
-                <p>Distribución del gasto según filtros.</p>
+                <h4>Total por rubro 3D</h4>
+                <p>Distribución del gasto según filtros activos.</p>
             </div>
         </div>
-
         <div id="categoryChart" class="chart-box chart-box-sm"></div>
     </div>
 </div>
@@ -221,7 +270,10 @@
     <div class="table-panel-header">
         <div>
             <h3>Detalle presupuestal por rubro</h3>
-            <p>Avance de pagos contra presupuesto asignado.</p>
+            <p>
+                Avance de pagos contra presupuesto asignado por rama visible.
+                Ahora distingue presupuesto efectivo, pagos directos y pagos heredados desde hijos.
+            </p>
         </div>
     </div>
 
@@ -231,26 +283,86 @@
                 <tr>
                     <th>Número</th>
                     <th>Rubro</th>
-                    <th class="text-end">Presupuesto</th>
-                    <th class="text-end">Pagado</th>
+                    <th class="text-end">Presupuesto efectivo</th>
+                    <th class="text-end">Pagado acumulado</th>
                     <th class="text-end">Pendiente</th>
                     <th>Avance</th>
                     <th>Estado</th>
                 </tr>
             </thead>
-
             <tbody>
                 {% for item in subcategory_breakdown %}
                     <tr>
-                        <td><strong>{{ item.category_name }}</strong></td>
-                        <td>{{ item.subcategory_name }}</td>
+                        <td>
+                            <strong>{{ item.category_name }}</strong>
+                        </td>
+
+                        <td>
+                            <div style="padding-left: {{ item.level * 18 }}px;">
+                                <strong>{{ item.subcategory_name }}</strong>
+
+                                <div class="mt-1 d-flex flex-wrap gap-1">
+                                    {% if item.children_count > 0 %}
+                                        <span class="status-pill info" title="Este nodo tiene hijos directos.">
+                                            Padre · {{ item.children_count }} hijos
+                                        </span>
+                                    {% else %}
+                                        <span class="status-pill success" title="Este nodo no tiene hijos directos.">
+                                            Hoja
+                                        </span>
+                                    {% endif %}
+
+                                    <span class="status-pill {{ item.payment_detail_class }}" title="{{ item.payment_detail_text }}">
+                                        {{ item.payment_detail_label }}
+                                    </span>
+
+                                    <span class="status-pill info" title="{{ item.budget_source_text }}">
+                                        {{ item.budget_source_label }}
+                                    </span>
+                                </div>
+
+                                {% if item.own_budget > 0 and item.children_count > 0 %}
+                                    <small class="text-muted d-block mt-1">
+                                        Presupuesto propio capturado: ${{ "{:,.2f}".format(item.own_budget) }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                        </td>
 
                         <td class="text-end">
                             <strong>${{ "{:,.2f}".format(item.budget) }}</strong>
+                            {% if item.children_count > 0 %}
+                                <small class="text-muted d-block">
+                                    efectivo del nodo
+                                </small>
+                            {% endif %}
                         </td>
 
                         <td class="text-end">
                             <strong>${{ "{:,.2f}".format(item.paid) }}</strong>
+
+                            {% if item.has_direct_payments or item.has_inherited_payments %}
+                                <small class="text-muted d-block mt-1">
+                                    {% if item.has_direct_payments %}
+                                        Directo:
+                                        <strong>${{ "{:,.2f}".format(item.direct_paid) }}</strong>
+                                        {% if item.direct_payment_count %}
+                                            · {{ item.direct_payment_count }} mov.
+                                        {% endif %}
+                                    {% endif %}
+
+                                    {% if item.has_direct_payments and item.has_inherited_payments %}
+                                        <br>
+                                    {% endif %}
+
+                                    {% if item.has_inherited_payments %}
+                                        De hijos:
+                                        <strong>${{ "{:,.2f}".format(item.inherited_paid) }}</strong>
+                                    {% endif %}
+                                </small>
+                            {% else %}
+                                <small class="text-muted d-block mt-1">Sin movimientos</small>
+                            {% endif %}
                         </td>
 
                         <td class="text-end">
@@ -266,19 +378,15 @@
                                 <div class="budget-progress-info">
                                     <span>{{ item.percentage }}%</span>
                                 </div>
-
                                 <div class="budget-progress">
                                     <div class="budget-progress-fill {{ item.status_class }}"
-                                         style="width: {% if item.percentage > 100 %}100{% else %}{{ item.percentage }}{% endif %}%;">
-                                    </div>
+                                         style="width: {% if item.percentage > 100 %}100{% else %}{{ item.percentage }}{% endif %}%;"></div>
                                 </div>
                             </div>
                         </td>
 
                         <td>
-                            <span class="status-pill {{ item.status_class }}">
-                                {{ item.status_label }}
-                            </span>
+                            <span class="status-pill {{ item.status_class }}">{{ item.status_label }}</span>
                         </td>
                     </tr>
                 {% else %}
@@ -299,10 +407,7 @@
             <h3>Últimos registros filtrados</h3>
             <p>Movimientos recientes incluidos en la vista actual.</p>
         </div>
-
-        <a href="{{ url_for('registros.index') }}" class="btn btn-outline-primary btn-sm">
-            Ver todos
-        </a>
+        <a href="{{ url_for('registros.index') }}" class="btn btn-outline-primary btn-sm">Ver todos</a>
     </div>
 
     <div class="table-responsive mt-3">
@@ -316,13 +421,10 @@
                     <th class="text-end">Monto</th>
                 </tr>
             </thead>
-
             <tbody>
                 {% for registro in latest_entries %}
                     <tr>
-                        <td>
-                            <strong>{{ registro.unique_key }}</strong>
-                        </td>
+                        <td><strong>{{ registro.unique_key }}</strong></td>
                         <td>{{ registro.application_date.strftime('%d/%m/%Y') }}</td>
                         <td>{{ registro.supplier.business_name }}</td>
                         <td>
@@ -332,15 +434,11 @@
                                 <span class="text-muted">Sin rubro</span>
                             {% endif %}
                         </td>
-                        <td class="text-end">
-                            <strong>${{ "{:,.2f}".format(registro.amount) }}</strong>
-                        </td>
+                        <td class="text-end"><strong>${{ "{:,.2f}".format(registro.amount) }}</strong></td>
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-5">
-                            No hay registros para los filtros seleccionados.
-                        </td>
+                        <td colspan="5" class="text-center text-muted py-5">No hay registros para los filtros seleccionados.</td>
                     </tr>
                 {% endfor %}
             </tbody>
