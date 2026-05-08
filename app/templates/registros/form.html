@@ -2,7 +2,7 @@
 
 {% if modo == "nuevo" %}
     {% set titulo = "Nuevo registro" %}
-    {% set subtitulo = "Captura una nueva operación" %}
+    {% set subtitulo = "Captura una nueva operación y sus evidencias" %}
 {% else %}
     {% set titulo = "Editar registro" %}
     {% set subtitulo = "Actualiza la información de la operación " ~ registro.unique_key %}
@@ -14,7 +14,7 @@
 {% block content %}
 
 <div class="panel">
-    <form method="POST">
+    <form id="entryForm" method="POST" enctype="multipart/form-data">
 
         <div class="form-section-title">
             <h3>Datos principales</h3>
@@ -113,6 +113,137 @@
             </div>
         </div>
 
+        <div class="evidence-section mt-5">
+            <div class="form-section-title">
+                <h3>Expediente digital</h3>
+                <p>
+                    Puedes adjuntar solicitud de pago, comprobante de pago y comentarios vía Gmail.
+                    No son obligatorios.
+                </p>
+            </div>
+
+            <div class="evidence-upload-grid">
+
+                <div class="evidence-upload-card">
+                    <div class="evidence-upload-icon">📄</div>
+
+                    <label class="form-label">Solicitud de pago</label>
+                    <input type="file"
+                           name="payment_request_file"
+                           class="form-control"
+                           accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xlsm,.xls">
+                    <small class="text-muted">PDF, Excel, PNG o JPG.</small>
+
+                    {% if document_map and document_map.get('payment_request') %}
+                        {% set doc = document_map.get('payment_request') %}
+                        <div class="current-document">
+                            <strong>Archivo actual:</strong>
+                            <span>{{ doc.original_filename }}</span>
+
+                            <div class="current-document-actions">
+                                <a href="{{ url_for('registros.ver_documento', document_id=doc.id) }}"
+                                   class="btn btn-sm btn-outline-primary"
+                                   target="_blank">
+                                    Ver
+                                </a>
+
+                                <a href="{{ url_for('registros.descargar_documento', document_id=doc.id) }}"
+                                   class="btn btn-sm btn-outline-success">
+                                    Descargar
+                                </a>
+
+                                <button type="submit"
+                                        form="delete-document-{{ doc.id }}"
+                                        class="btn btn-sm btn-outline-danger"
+                                        onclick="return confirm('¿Eliminar este documento?');">
+                                    Quitar
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="evidence-upload-card">
+                    <div class="evidence-upload-icon">💳</div>
+
+                    <label class="form-label">Comprobante de pago</label>
+                    <input type="file"
+                           name="payment_receipt_file"
+                           class="form-control"
+                           accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xlsm,.xls">
+                    <small class="text-muted">PDF, Excel, PNG o JPG.</small>
+
+                    {% if document_map and document_map.get('payment_receipt') %}
+                        {% set doc = document_map.get('payment_receipt') %}
+                        <div class="current-document">
+                            <strong>Archivo actual:</strong>
+                            <span>{{ doc.original_filename }}</span>
+
+                            <div class="current-document-actions">
+                                <a href="{{ url_for('registros.ver_documento', document_id=doc.id) }}"
+                                   class="btn btn-sm btn-outline-primary"
+                                   target="_blank">
+                                    Ver
+                                </a>
+
+                                <a href="{{ url_for('registros.descargar_documento', document_id=doc.id) }}"
+                                   class="btn btn-sm btn-outline-success">
+                                    Descargar
+                                </a>
+
+                                <button type="submit"
+                                        form="delete-document-{{ doc.id }}"
+                                        class="btn btn-sm btn-outline-danger"
+                                        onclick="return confirm('¿Eliminar este documento?');">
+                                    Quitar
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="evidence-upload-card">
+                    <div class="evidence-upload-icon">✉️</div>
+
+                    <label class="form-label">Comentarios vía Gmail</label>
+                    <input type="file"
+                           name="gmail_comments_file"
+                           class="form-control"
+                           accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xlsm,.xls">
+                    <small class="text-muted">PDF, Excel, PNG o JPG.</small>
+
+                    {% if document_map and document_map.get('gmail_comments') %}
+                        {% set doc = document_map.get('gmail_comments') %}
+                        <div class="current-document">
+                            <strong>Archivo actual:</strong>
+                            <span>{{ doc.original_filename }}</span>
+
+                            <div class="current-document-actions">
+                                <a href="{{ url_for('registros.ver_documento', document_id=doc.id) }}"
+                                   class="btn btn-sm btn-outline-primary"
+                                   target="_blank">
+                                    Ver
+                                </a>
+
+                                <a href="{{ url_for('registros.descargar_documento', document_id=doc.id) }}"
+                                   class="btn btn-sm btn-outline-success">
+                                    Descargar
+                                </a>
+
+                                <button type="submit"
+                                        form="delete-document-{{ doc.id }}"
+                                        class="btn btn-sm btn-outline-danger"
+                                        onclick="return confirm('¿Eliminar este documento?');">
+                                    Quitar
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+
         <div class="form-actions mt-4">
             <a href="{{ url_for('registros.index') }}" class="btn btn-outline-secondary">
                 Cancelar
@@ -125,6 +256,15 @@
 
     </form>
 </div>
+
+{% if document_map %}
+    {% for doc_type, doc in document_map.items() %}
+        <form id="delete-document-{{ doc.id }}"
+              method="POST"
+              action="{{ url_for('registros.eliminar_documento', document_id=doc.id) }}">
+        </form>
+    {% endfor %}
+{% endif %}
 
 <script src="{{ url_for('static', filename='js/registros.js') }}"></script>
 

@@ -89,7 +89,7 @@ class Entry(db.Model):
 
     supplier_id = db.Column(db.Integer, db.ForeignKey("suppliers.id"), nullable=False)
 
-    # Nuevo campo
+    # Rubro actual
     budget_item_id = db.Column(db.Integer, db.ForeignKey("budget_items.id"), nullable=True)
 
     # Campos viejos, se quedan temporalmente para transición
@@ -106,6 +106,57 @@ class Entry(db.Model):
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    documents = db.relationship(
+        "EntryDocument",
+        backref="entry",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+
+
+class EntryDocument(db.Model):
+    __tablename__ = "entry_documents"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    entry_id = db.Column(
+        db.Integer,
+        db.ForeignKey("entries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    document_type = db.Column(
+        db.Enum(
+            "payment_request",
+            "payment_receipt",
+            "gmail_comments"
+        ),
+        nullable=False,
+        index=True
+    )
+
+    original_filename = db.Column(db.String(255), nullable=False)
+    stored_filename = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)
+    file_extension = db.Column(db.String(20), nullable=True)
+    mime_type = db.Column(db.String(120), nullable=True)
+    file_size_kb = db.Column(db.Numeric(12, 2), nullable=True)
+
+    uploaded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    uploaded_by = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    uploader = db.relationship(
+        "User",
+        backref=db.backref("entry_documents_uploaded", lazy=True),
+        foreign_keys=[uploaded_by]
+    )
 
 
 class SupplierDocument(db.Model):

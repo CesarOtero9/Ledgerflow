@@ -1,19 +1,37 @@
 {% extends "base.html" %}
 
 {% block page_title %}Registros{% endblock %}
-{% block page_subtitle %}Captura y consulta de movimientos registrados{% endblock %}
+{% block page_subtitle %}Consulta, filtra, ordena y revisa expedientes digitales{% endblock %}
 
 {% block content %}
 
 <div class="module-header">
     <div>
         <h3>Registros capturados</h3>
-        <p>Consulta las operaciones registradas por fecha, proveedor, rubro y monto.</p>
+        <p>
+            Filtra como en Excel por fecha, mes, proveedor, rubro, folio y monto.
+            Total filtrado: <strong>{{ total_filtrado }}</strong>.
+        </p>
     </div>
 
     <div class="d-flex gap-2 flex-wrap">
         <a href="{{ url_for('registros.importar_excel') }}" class="btn btn-outline-success">
             Importar Excel
+        </a>
+
+        <a href="{{ url_for('registros.descargar_documentos_filtrados',
+                q=filters.q,
+                fecha_desde=filters.fecha_desde,
+                fecha_hasta=filters.fecha_hasta,
+                mes=filters.mes,
+                supplier_id=filters.supplier_id,
+                budget_item_id=filters.budget_item_id,
+                folio=filters.folio,
+                sort=filters.sort,
+                direction=filters.direction
+           ) }}"
+           class="btn btn-outline-primary">
+            Descargar evidencias filtradas
         </a>
 
         <a href="{{ url_for('registros.nuevo') }}" class="btn btn-success">
@@ -22,9 +40,140 @@
     </div>
 </div>
 
-<div class="panel mt-4">
+<div class="panel mt-4 filter-panel-pro">
+    <form method="GET" action="{{ url_for('registros.index') }}">
+        <div class="filter-grid-pro">
+
+            <div class="filter-field wide">
+                <label class="form-label">Buscar general</label>
+                <input type="text"
+                       name="q"
+                       class="form-control"
+                       placeholder="Clave, proveedor, RFC, concepto..."
+                       value="{{ filters.q }}">
+            </div>
+
+            <div class="filter-field">
+                <label class="form-label">Fecha desde</label>
+                <input type="text"
+                       name="fecha_desde"
+                       class="form-control"
+                       placeholder="dd/mm/yyyy"
+                       value="{{ filters.fecha_desde }}">
+            </div>
+
+            <div class="filter-field">
+                <label class="form-label">Fecha hasta</label>
+                <input type="text"
+                       name="fecha_hasta"
+                       class="form-control"
+                       placeholder="dd/mm/yyyy"
+                       value="{{ filters.fecha_hasta }}">
+            </div>
+
+            <div class="filter-field">
+                <label class="form-label">Mes</label>
+                <select name="mes" class="form-select">
+                    <option value="">Todos</option>
+
+                    {% for num, nombre in meses.items() %}
+                        <option value="{{ num }}" {% if filters.mes|string == num|string %}selected{% endif %}>
+                            {{ nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-field wide">
+                <label class="form-label">Proveedor</label>
+                <select name="supplier_id" class="form-select select2-field">
+                    <option value="">Todos los proveedores</option>
+
+                    {% for proveedor in proveedores %}
+                        <option value="{{ proveedor.id }}"
+                            {% if filters.supplier_id|string == proveedor.id|string %}selected{% endif %}>
+                            {{ proveedor.business_name }} - {{ proveedor.rfc }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-field wide">
+                <label class="form-label">Rubro</label>
+                <select name="budget_item_id" class="form-select select2-field">
+                    <option value="">Todos los rubros</option>
+
+                    {% for item in budget_items %}
+                        <option value="{{ item.id }}"
+                            {% if filters.budget_item_id|string == item.id|string %}selected{% endif %}>
+                            {{ item.item_code }} - {{ item.item_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-field">
+                <label class="form-label">Folio</label>
+                <input type="text"
+                       name="folio"
+                       class="form-control"
+                       placeholder="Folio..."
+                       value="{{ filters.folio }}">
+            </div>
+
+            <div class="filter-field">
+                <label class="form-label">Ordenar por</label>
+                <select name="sort" class="form-select">
+                    <option value="fecha" {% if filters.sort == 'fecha' %}selected{% endif %}>Fecha</option>
+                    <option value="monto" {% if filters.sort == 'monto' %}selected{% endif %}>Monto</option>
+                    <option value="proveedor" {% if filters.sort == 'proveedor' %}selected{% endif %}>Proveedor</option>
+                    <option value="rubro" {% if filters.sort == 'rubro' %}selected{% endif %}>Rubro</option>
+                    <option value="folio" {% if filters.sort == 'folio' %}selected{% endif %}>Folio</option>
+                    <option value="clave" {% if filters.sort == 'clave' %}selected{% endif %}>Clave</option>
+                    <option value="creado" {% if filters.sort == 'creado' %}selected{% endif %}>Fecha de captura</option>
+                </select>
+            </div>
+
+            <div class="filter-field">
+                <label class="form-label">Dirección</label>
+                <select name="direction" class="form-select">
+                    <option value="desc" {% if filters.direction == 'desc' %}selected{% endif %}>
+                        Mayor a menor / Reciente
+                    </option>
+                    <option value="asc" {% if filters.direction == 'asc' %}selected{% endif %}>
+                        Menor a mayor / Antiguo
+                    </option>
+                </select>
+            </div>
+
+            <div class="filter-field">
+                <label class="form-label">Por página</label>
+                <select name="per_page" class="form-select">
+                    {% for option in [25, 50, 100, 200] %}
+                        <option value="{{ option }}" {% if per_page == option %}selected{% endif %}>
+                            {{ option }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-actions-pro">
+                <button type="submit" class="btn btn-success">
+                    Aplicar filtros
+                </button>
+
+                <a href="{{ url_for('registros.index') }}" class="btn btn-outline-secondary">
+                    Limpiar
+                </a>
+            </div>
+
+        </div>
+    </form>
+</div>
+
+<div class="panel mt-4 records-table-panel">
     <div class="table-responsive">
-        <table class="table align-middle custom-table">
+        <table class="table align-middle custom-table records-table-pro">
             <thead>
                 <tr>
                     <th>Clave</th>
@@ -34,12 +183,16 @@
                     <th>Rubro</th>
                     <th class="text-end">Monto</th>
                     <th>Folio</th>
+                    <th>Evidencias</th>
                     <th class="text-end">Acciones</th>
                 </tr>
             </thead>
 
             <tbody>
                 {% for registro in registros %}
+                    {% set docs = documents_by_entry.get(registro.id, {}) %}
+                    {% set docs_count = docs|length %}
+
                     <tr>
                         <td>
                             <strong>{{ registro.unique_key }}</strong>
@@ -47,13 +200,18 @@
 
                         <td>{{ registro.application_date.strftime('%d/%m/%Y') }}</td>
 
-                        <td>{{ registro.application_month }}</td>
+                        <td>
+                            <span class="month-pill">{{ registro.application_month }}</span>
+                        </td>
 
-                        <td>{{ registro.supplier.business_name }}</td>
+                        <td class="supplier-cell">
+                            {{ registro.supplier.business_name }}
+                        </td>
 
                         <td>
                             {% if registro.budget_item %}
-                                {{ registro.budget_item.item_code }} - {{ registro.budget_item.item_name }}
+                                <span class="budget-code">{{ registro.budget_item.item_code }}</span>
+                                {{ registro.budget_item.item_name }}
                             {% else %}
                                 <span class="text-muted">Sin rubro</span>
                             {% endif %}
@@ -65,42 +223,527 @@
 
                         <td>{{ registro.operation_folio or "N/A" }}</td>
 
-                        <td class="text-end">
-                            <a href="{{ url_for('registros.editar', registro_id=registro.id) }}"
-                               class="btn btn-sm btn-outline-primary">
-                                Editar
-                            </a>
+                        <td>
+                            <div class="evidence-chip-stack">
 
-                            <form method="POST"
-                                  action="{{ url_for('registros.eliminar', registro_id=registro.id) }}"
-                                  class="d-inline"
-                                  onsubmit="return confirm('¿Seguro que deseas eliminar este registro?');">
-                                <button class="btn btn-sm btn-outline-danger" type="submit">
-                                    Eliminar
-                                </button>
-                            </form>
+                                {% if docs.get('payment_request') %}
+                                    {% set doc = docs.get('payment_request') %}
+                                    <button type="button"
+                                            class="evidence-chip active js-preview-document"
+                                            data-preview-url="{{ url_for('registros.ver_documento', document_id=doc.id) }}"
+                                            data-download-url="{{ url_for('registros.descargar_documento', document_id=doc.id) }}"
+                                            data-title="Solicitud de pago - {{ registro.unique_key }}"
+                                            data-extension="{{ (doc.file_extension or '')|lower }}">
+                                        Solicitud
+                                    </button>
+                                {% else %}
+                                    <span class="evidence-chip empty">Solicitud</span>
+                                {% endif %}
+
+                                {% if docs.get('payment_receipt') %}
+                                    {% set doc = docs.get('payment_receipt') %}
+                                    <button type="button"
+                                            class="evidence-chip active js-preview-document"
+                                            data-preview-url="{{ url_for('registros.ver_documento', document_id=doc.id) }}"
+                                            data-download-url="{{ url_for('registros.descargar_documento', document_id=doc.id) }}"
+                                            data-title="Comprobante de pago - {{ registro.unique_key }}"
+                                            data-extension="{{ (doc.file_extension or '')|lower }}">
+                                        Comprobante
+                                    </button>
+                                {% else %}
+                                    <span class="evidence-chip empty">Comprobante</span>
+                                {% endif %}
+
+                                {% if docs.get('gmail_comments') %}
+                                    {% set doc = docs.get('gmail_comments') %}
+                                    <button type="button"
+                                            class="evidence-chip active js-preview-document"
+                                            data-preview-url="{{ url_for('registros.ver_documento', document_id=doc.id) }}"
+                                            data-download-url="{{ url_for('registros.descargar_documento', document_id=doc.id) }}"
+                                            data-title="Comentarios vía Gmail - {{ registro.unique_key }}"
+                                            data-extension="{{ (doc.file_extension or '')|lower }}">
+                                        Gmail
+                                    </button>
+                                {% else %}
+                                    <span class="evidence-chip empty">Gmail</span>
+                                {% endif %}
+
+                            </div>
+
+                            <small class="evidence-count">{{ docs_count }}/3 archivos</small>
+                        </td>
+
+                        <td class="text-end">
+                            <div class="action-stack">
+                                <a href="{{ url_for('registros.editar', registro_id=registro.id) }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    Editar
+                                </a>
+
+                                {% if docs_count > 0 %}
+                                    <a href="{{ url_for('registros.descargar_documentos_registro', registro_id=registro.id) }}"
+                                       class="btn btn-sm btn-outline-success">
+                                        ZIP
+                                    </a>
+                                {% endif %}
+
+                                <form method="POST"
+                                      action="{{ url_for('registros.eliminar', registro_id=registro.id) }}"
+                                      class="d-inline"
+                                      onsubmit="return confirm('¿Seguro que deseas eliminar este registro? También se eliminarán sus documentos.');">
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">
+                                        Eliminar
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
 
                     <tr class="concept-row">
-                        <td colspan="8">
+                        <td colspan="9">
                             <strong>Concepto:</strong> {{ registro.concept }}
+
                             {% if registro.comments %}
                                 <br>
                                 <strong>Comentarios:</strong> {{ registro.comments }}
                             {% endif %}
                         </td>
                     </tr>
+
                 {% else %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-5">
-                            Todavía no hay registros capturados.
+                        <td colspan="9" class="text-center text-muted py-5">
+                            No hay registros con los filtros actuales.
                         </td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    {% if pagination and pagination.pages > 1 %}
+        <div class="pagination-pro mt-4">
+            {% if pagination.has_prev %}
+                <a class="btn btn-outline-secondary"
+                   href="{{ url_for('registros.index',
+                        page=pagination.prev_num,
+                        per_page=per_page,
+                        q=filters.q,
+                        fecha_desde=filters.fecha_desde,
+                        fecha_hasta=filters.fecha_hasta,
+                        mes=filters.mes,
+                        supplier_id=filters.supplier_id,
+                        budget_item_id=filters.budget_item_id,
+                        folio=filters.folio,
+                        sort=filters.sort,
+                        direction=filters.direction
+                   ) }}">
+                    ← Anterior
+                </a>
+            {% endif %}
+
+            <span class="pagination-status">
+                Página {{ pagination.page }} de {{ pagination.pages }}
+            </span>
+
+            {% if pagination.has_next %}
+                <a class="btn btn-outline-secondary"
+                   href="{{ url_for('registros.index',
+                        page=pagination.next_num,
+                        per_page=per_page,
+                        q=filters.q,
+                        fecha_desde=filters.fecha_desde,
+                        fecha_hasta=filters.fecha_hasta,
+                        mes=filters.mes,
+                        supplier_id=filters.supplier_id,
+                        budget_item_id=filters.budget_item_id,
+                        folio=filters.folio,
+                        sort=filters.sort,
+                        direction=filters.direction
+                   ) }}">
+                    Siguiente →
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
 </div>
+
+<!-- VISUALIZADOR INDEPENDIENTE DE DOCUMENTOS -->
+<div id="documentPreviewModal"
+     style="
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+     ">
+
+    <div id="documentPreviewBackdrop"
+         style="
+            position: absolute;
+            inset: 0;
+            background: rgba(20, 32, 38, 0.62);
+            backdrop-filter: blur(8px);
+         ">
+    </div>
+
+    <div id="documentPreviewCard"
+         style="
+            position: relative;
+            z-index: 2;
+            width: min(980px, 94vw);
+            height: min(720px, 86vh);
+            max-height: 86vh;
+            display: flex;
+            flex-direction: column;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.97);
+            border: 1px solid rgba(255,255,255,0.82);
+            box-shadow: 0 28px 80px rgba(31, 78, 120, 0.34);
+            overflow: hidden;
+         ">
+
+        <div style="
+                flex: 0 0 auto;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 12px 16px;
+                background: rgba(247,250,248,0.95);
+                border-bottom: 1px solid rgba(73,108,112,0.12);
+             ">
+            <h5 id="documentPreviewTitle"
+                style="
+                    margin: 0;
+                    color: #1F4E78;
+                    font-size: 16px;
+                    font-weight: 950;
+                ">
+                Vista previa
+            </h5>
+
+            <button type="button"
+                    id="documentPreviewClose"
+                    style="
+                        width: 36px;
+                        height: 36px;
+                        border: none;
+                        border-radius: 12px;
+                        display: grid;
+                        place-items: center;
+                        background: rgba(186, 98, 98, 0.12);
+                        color: #BA6262;
+                        font-size: 24px;
+                        line-height: 1;
+                        font-weight: 800;
+                        cursor: pointer;
+                    ">
+                ×
+            </button>
+        </div>
+
+        <div id="documentPreviewBody"
+             style="
+                flex: 1 1 auto;
+                min-height: 0;
+                padding: 12px;
+                overflow: hidden;
+                background:
+                    radial-gradient(circle at 10% 10%, rgba(122,169,151,0.12), transparent 28%),
+                    rgba(247,250,248,0.75);
+             ">
+        </div>
+
+        <div style="
+                flex: 0 0 auto;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 12px;
+                padding: 12px 16px;
+                background: rgba(247,250,248,0.95);
+                border-top: 1px solid rgba(73,108,112,0.12);
+             ">
+            <a href="#"
+               id="documentOpenBtn"
+               target="_blank"
+               rel="noopener"
+               class="btn btn-outline-primary">
+                Abrir en pestaña
+            </a>
+
+            <a href="#"
+               id="documentDownloadBtn"
+               class="btn btn-success">
+                Descargar
+            </a>
+
+            <button type="button"
+                    id="documentPreviewCloseFooter"
+                    class="btn btn-outline-secondary">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    function getEl(id) {
+        return document.getElementById(id);
+    }
+
+    function forceModalStyles() {
+        const modal = getEl("documentPreviewModal");
+        const backdrop = getEl("documentPreviewBackdrop");
+        const card = getEl("documentPreviewCard");
+        const bodyEl = getEl("documentPreviewBody");
+
+        if (!modal || !backdrop || !card || !bodyEl) {
+            console.error("Faltan piezas del visualizador:", { modal, backdrop, card, bodyEl });
+            return false;
+        }
+
+        // Mover el modal al body evita conflictos con contenedores, transforms o z-index del layout.
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+
+        modal.style.cssText = `
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 2147483647 !important;
+            display: none;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 24px !important;
+            box-sizing: border-box !important;
+            pointer-events: auto !important;
+        `;
+
+        backdrop.style.cssText = `
+            position: absolute !important;
+            inset: 0 !important;
+            z-index: 1 !important;
+            background: rgba(20, 32, 38, 0.62) !important;
+            backdrop-filter: blur(8px) !important;
+            pointer-events: auto !important;
+        `;
+
+        card.style.cssText = `
+            position: relative !important;
+            z-index: 2 !important;
+            width: min(980px, 94vw) !important;
+            height: min(720px, 86vh) !important;
+            max-height: 86vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            border-radius: 24px !important;
+            background: rgba(255, 255, 255, 0.97) !important;
+            border: 1px solid rgba(255,255,255,0.82) !important;
+            box-shadow: 0 28px 80px rgba(31, 78, 120, 0.34) !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+            transform: translateY(0) scale(1) !important;
+        `;
+
+        bodyEl.style.cssText = `
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            padding: 12px !important;
+            overflow: hidden !important;
+            background:
+                radial-gradient(circle at 10% 10%, rgba(122,169,151,0.12), transparent 28%),
+                rgba(247,250,248,0.75) !important;
+            box-sizing: border-box !important;
+        `;
+
+        return true;
+    }
+
+    function openDocumentModal(button) {
+        const modal = getEl("documentPreviewModal");
+        const titleEl = getEl("documentPreviewTitle");
+        const bodyEl = getEl("documentPreviewBody");
+        const downloadBtn = getEl("documentDownloadBtn");
+        const openBtn = getEl("documentOpenBtn");
+
+        if (!forceModalStyles()) {
+            alert("No se encontró el visualizador en el HTML.");
+            return;
+        }
+
+        if (!modal || !titleEl || !bodyEl || !downloadBtn || !openBtn) {
+            alert("No se encontró el visualizador en el HTML.");
+            console.error("Faltan elementos del visualizador:", {
+                modal,
+                titleEl,
+                bodyEl,
+                downloadBtn,
+                openBtn
+            });
+            return;
+        }
+
+        const previewUrl = button.getAttribute("data-preview-url") || "";
+        const downloadUrl = button.getAttribute("data-download-url") || "";
+        const title = button.getAttribute("data-title") || "Vista previa";
+        const extension = (button.getAttribute("data-extension") || "").toLowerCase();
+
+        console.log("Abriendo documento:", {
+            previewUrl,
+            downloadUrl,
+            title,
+            extension
+        });
+
+        titleEl.textContent = title;
+        downloadBtn.href = downloadUrl || "#";
+        openBtn.href = previewUrl || "#";
+        bodyEl.innerHTML = "";
+
+        if (!previewUrl || !downloadUrl) {
+            bodyEl.innerHTML = `
+                <div style="
+                    height: 100%;
+                    display: grid;
+                    place-items: center;
+                    align-content: center;
+                    gap: 12px;
+                    text-align: center;
+                    color: #72827B;
+                ">
+                    <h4 style="margin:0;color:#1F4E78;font-weight:950;">
+                        No se encontró la ruta del archivo
+                    </h4>
+                    <p>El botón no tiene data-preview-url o data-download-url.</p>
+                </div>
+            `;
+        } else if (extension === "pdf") {
+            bodyEl.innerHTML = `
+                <iframe
+                    src="${previewUrl}"
+                    title="${title}"
+                    style="
+                        display: block;
+                        width: 100%;
+                        height: 100%;
+                        border: none;
+                        border-radius: 16px;
+                        background: white;
+                    ">
+                </iframe>
+            `;
+        } else if (["png", "jpg", "jpeg"].includes(extension)) {
+            bodyEl.innerHTML = `
+                <div style="
+                    width: 100%;
+                    height: 100%;
+                    display: grid;
+                    place-items: center;
+                    overflow: auto;
+                ">
+                    <img src="${previewUrl}"
+                         alt="${title}"
+                         style="
+                            display: block;
+                            max-width: 100%;
+                            max-height: 100%;
+                            object-fit: contain;
+                            border-radius: 16px;
+                            box-shadow: 0 18px 42px rgba(31,78,120,0.18);
+                         ">
+                </div>
+            `;
+        } else {
+            bodyEl.innerHTML = `
+                <div style="
+                    height: 100%;
+                    display: grid;
+                    place-items: center;
+                    align-content: center;
+                    gap: 12px;
+                    text-align: center;
+                    color: #72827B;
+                ">
+                    <h4 style="margin:0;color:#1F4E78;font-weight:950;">
+                        Este archivo no se puede previsualizar directamente
+                    </h4>
+                    <p>Los archivos de Excel se descargan para abrirlos en su programa correspondiente.</p>
+                    <a href="${downloadUrl}" class="btn btn-success mt-3">
+                        Descargar archivo
+                    </a>
+                </div>
+            `;
+        }
+
+        modal.style.display = "flex";
+        document.body.style.overflow = "hidden";
+
+        console.log("Modal display:", modal.style.display, "Modal parent:", modal.parentElement.tagName);
+    }
+
+    function closeDocumentModal() {
+        const modal = getEl("documentPreviewModal");
+        const bodyEl = getEl("documentPreviewBody");
+        const downloadBtn = getEl("documentDownloadBtn");
+        const openBtn = getEl("documentOpenBtn");
+
+        if (modal) {
+            modal.style.display = "none";
+        }
+
+        if (bodyEl) {
+            bodyEl.innerHTML = "";
+        }
+
+        if (downloadBtn) {
+            downloadBtn.href = "#";
+        }
+
+        if (openBtn) {
+            openBtn.href = "#";
+        }
+
+        document.body.style.overflow = "";
+    }
+
+    // Preparar modal al cargar.
+    document.addEventListener("DOMContentLoaded", function () {
+        forceModalStyles();
+    });
+
+    // Delegación de eventos: detecta cualquier botón con data-preview-url.
+    document.addEventListener("click", function (event) {
+        const previewButton = event.target.closest("[data-preview-url]");
+
+        if (previewButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            openDocumentModal(previewButton);
+            return;
+        }
+
+        const closeButton = event.target.closest(
+            "#documentPreviewBackdrop, #documentPreviewClose, #documentPreviewCloseFooter"
+        );
+
+        if (closeButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            closeDocumentModal();
+        }
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+            closeDocumentModal();
+        }
+    });
+})();
+</script>
 
 {% endblock %}

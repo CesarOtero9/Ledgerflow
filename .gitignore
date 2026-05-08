@@ -11,4 +11,4 @@ instance/
 *.db
 *.sqlite3
 app/static/uploads/constancias/*
-!app/static/uploads/constancias/.gitkeep
+!app/static/uploads/constancias/.gitkeepapp/static/uploads/
