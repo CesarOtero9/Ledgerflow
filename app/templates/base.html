@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/alerts.css') }}">
 </head>
 
 <body>
@@ -54,44 +55,60 @@
 
         <div class="sidebar-divider"></div>
 
-        <nav class="menu">
-            <a href="{{ url_for('main.dashboard') }}" class="menu-link">
+        <nav class="menu ledger-menu-scroll">
+            <a href="{{ url_for('main.dashboard') }}"
+               class="menu-link {% if request.endpoint and request.endpoint.startswith('main.') %}active{% endif %}">
                 <i class="fa-solid fa-chart-pie"></i>
                 <span class="sidebar-text">Dashboard</span>
             </a>
 
-            <a href="{{ url_for('registros.index') }}" class="menu-link">
+            <a href="{{ url_for('alertas.index') }}"
+               class="menu-link alert-menu-link {% if request.endpoint and request.endpoint.startswith('alertas.') %}active{% endif %}">
+                <i class="fa-solid fa-bell"></i>
+                <span class="sidebar-text">Alertas</span>
+                {% if (budget_alert_count|default(0)) > 0 %}
+                    <span class="sidebar-alert-badge">{{ budget_alert_count }}</span>
+                {% endif %}
+            </a>
+
+            <a href="{{ url_for('registros.index') }}"
+               class="menu-link {% if request.endpoint and request.endpoint.startswith('registros.') %}active{% endif %}">
                 <i class="fa-solid fa-table-list"></i>
                 <span class="sidebar-text">Registros</span>
             </a>
 
-            <a href="{{ url_for('consultas.proveedores') }}" class="menu-link">
+            <a href="{{ url_for('consultas.proveedores') }}"
+               class="menu-link {% if request.endpoint == 'consultas.proveedores' %}active{% endif %}">
                 <i class="fa-solid fa-magnifying-glass-chart"></i>
                 <span class="sidebar-text">Consulta proveedor</span>
             </a>
 
-            <a href="{{ url_for('consultas.rubros') }}" class="menu-link">
+            <a href="{{ url_for('consultas.rubros') }}"
+               class="menu-link {% if request.endpoint == 'consultas.rubros' %}active{% endif %}">
                 <i class="fa-solid fa-table-cells-large"></i>
                 <span class="sidebar-text">Resumen rubro</span>
             </a>
 
-            <a href="{{ url_for('consultas.contadora') }}" class="menu-link">
+            <a href="{{ url_for('consultas.contadora') }}"
+               class="menu-link {% if request.endpoint == 'consultas.contadora' %}active{% endif %}">
                 <i class="fa-solid fa-file-invoice-dollar"></i>
                 <span class="sidebar-text">Resumen contadora</span>
             </a>
 
-            <a href="{{ url_for('proveedores.index') }}" class="menu-link">
+            <a href="{{ url_for('proveedores.index') }}"
+               class="menu-link {% if request.endpoint and request.endpoint.startswith('proveedores.') %}active{% endif %}">
                 <i class="fa-solid fa-building-user"></i>
                 <span class="sidebar-text">Proveedores</span>
             </a>
 
-            <a href="{{ url_for('rubros.index') }}" class="menu-link">
+            <a href="{{ url_for('rubros.index') }}"
+               class="menu-link {% if request.endpoint and request.endpoint.startswith('rubros.') %}active{% endif %}">
                 <i class="fa-solid fa-layer-group"></i>
                 <span class="sidebar-text">Rubros</span>
             </a>
         </nav>
 
-        <div class="sidebar-footer">
+        <div class="sidebar-footer compact-sidebar-footer">
             <div class="mini-status">
                 <span class="pulse-dot"></span>
                 <div class="sidebar-text">
@@ -121,6 +138,16 @@
 
             <div class="topbar-actions">
                 {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('alertas.index') }}"
+                       class="notification-bell {% if (budget_alert_count|default(0)) > 0 %}has-alerts{% endif %}"
+                       title="Alertas presupuestales"
+                       aria-label="Alertas presupuestales">
+                        <i class="fa-solid fa-bell"></i>
+                        {% if (budget_alert_count|default(0)) > 0 %}
+                            <span class="notification-count">{{ budget_alert_count }}</span>
+                        {% endif %}
+                    </a>
+
                     <div class="user-pill compact-user-pill">
                         <div class="user-avatar">
                             <i class="fa-solid fa-user"></i>

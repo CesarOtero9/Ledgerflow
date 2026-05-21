@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block page_title %}Alertas{% endblock %}
+{% block page_subtitle %}Control preventivo de presupuesto, pagos directos y rubros en riesgo{% endblock %}
+
+{% block content %}
+
+<div class="alert-hero">
+    <div>
+        <span class="eyebrow">Budget Watchtower</span>
+        <h3>Centro de alertas presupuestales</h3>
+        <p>
+            Las alertas se mantienen activas aunque las marques como revisadas. Solo se resuelven cuando
+            un pago o presupuesto cambia y el rubro sale del problema detectado.
+        </p>
+    </div>
+
+    <div class="alert-hero-actions">
+        <form method="POST" action="{{ url_for('alertas.recalcular') }}">
+            <button type="submit" class="btn btn-outline-success">
+                <i class="fa-solid fa-rotate"></i> Recalcular
+            </button>
+        </form>
+
+        <form method="POST" action="{{ url_for('alertas.marcar_todas_revisadas') }}">
+            <button type="submit" class="btn btn-success">
+                <i class="fa-solid fa-check-double"></i> Marcar activas como revisadas
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="cards-grid mt-4">
+    <div class="metric-card premium alert-metric active">
+        <span>Activas</span>
+        <strong>{{ counts.active }}</strong>
+        <small>Alertas que siguen aplicando</small>
+    </div>
+
+    <div class="metric-card premium alert-metric unread">
+        <span>No revisadas</span>
+        <strong>{{ counts.unacknowledged }}</strong>
+        <small>Se muestran en la campanita</small>
+    </div>
+
+    <div class="metric-card premium alert-metric danger-level">
+        <span>Excedidas</span>
+        <strong>{{ counts.danger + counts.critical }}</strong>
+        <small>Presupuesto rebasado o crítico</small>
+    </div>
+
+    <div class="metric-card premium alert-metric resolved">
+        <span>Resueltas</span>
+        <strong>{{ counts.resolved }}</strong>
+        <small>Historial conservado</small>
+    </div>
+</div>
+
+<div class="panel mt-4 alert-filter-panel">
+    <form method="GET" action="{{ url_for('alertas.index') }}">
+        <div class="filter-grid alert-filter-grid">
+            <div>
+                <label class="form-label">Estado</label>
+                <select name="status" class="form-select">
+                    <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Activas</option>
+                    <option value="unacknowledged" {% if filters.status == 'unacknowledged' %}selected{% endif %}>No revisadas</option>
+                    <option value="acknowledged" {% if filters.status == 'acknowledged' %}selected{% endif %}>Revisadas activas</option>
+                    <option value="resolved" {% if filters.status == 'resolved' %}selected{% endif %}>Resueltas</option>
+                    <option value="all" {% if filters.status == 'all' %}selected{% endif %}>Todas</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Severidad</label>
+                <select name="severity" class="form-select">
+                    <option value="">Todas</option>
+                    <option value="info" {% if filters.severity == 'info' %}selected{% endif %}>Atención</option>
+                    <option value="warning" {% if filters.severity == 'warning' %}selected{% endif %}>Riesgo</option>
+                    <option value="danger" {% if filters.severity == 'danger' %}selected{% endif %}>Excedido</option>
+                    <option value="critical" {% if filters.severity == 'critical' %}selected{% endif %}>Crítico</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Tipo</label>
+                <select name="type" class="form-select">
+                    <option value="">Todos</option>
+                    {% for value, label in alert_type_labels.items() %}
+                        <option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Buscar</label>
+                <input type="text"
+                       name="q"
+                       class="form-control"
+                       placeholder="Rubro, código o mensaje..."
+                       value="{{ filters.q }}">
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-success w-100">
+                    <i class="fa-solid fa-filter"></i> Aplicar
+                </button>
+                <a href="{{ url_for('alertas.index') }}" class="btn btn-outline-secondary w-100">Limpiar</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="alert-list mt-4">
+    {% if alerts %}
+        {% for alert in alerts %}
+            <div class="budget-alert-card {{ alert.severity }} {% if not alert.is_active %}resolved{% endif %} {% if alert.is_acknowledged %}acknowledged{% endif %}">
+                <div class="alert-icon-wrap">
+                    {% if not alert.is_active %}
+                        <i class="fa-solid fa-circle-check"></i>
+                    {% elif alert.severity in ['danger', 'critical'] %}
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    {% elif alert.severity == 'warning' %}
+                        <i class="fa-solid fa-bell"></i>
+                    {% else %}
+                        <i class="fa-solid fa-circle-info"></i>
+                    {% endif %}
+                </div>
+
+                <div class="alert-main">
+                    <div class="alert-card-header">
+                        <div>
+                            <div class="alert-badges">
+                                <span class="alert-type-pill">{{ alert.type_label }}</span>
+                                <span class="alert-severity-pill {{ alert.severity }}">
+                                    {{ severity_labels.get(alert.severity, alert.severity|upper) }}
+                                </span>
+                                {% if alert.is_active and not alert.is_acknowledged %}
+                                    <span class="alert-status-pill unread">No revisada</span>
+                                {% elif alert.is_active and alert.is_acknowledged %}
+                                    <span class="alert-status-pill acknowledged">Revisada</span>
+                                {% else %}
+                                    <span class="alert-status-pill resolved">Resuelta</span>
+                                {% endif %}
+                            </div>
+
+                            <h3>{{ alert.title }}</h3>
+                            <p>{{ alert.message }}</p>
+                        </div>
+
+                        <div class="alert-percentage">
+                            {% if alert.alert_type == 'THRESHOLD' %}
+                                <strong>{{ "{:,.2f}".format(alert.current_percentage or 0) }}%</strong>
+                                <small>Avance</small>
+                            {% else %}
+                                <strong>${{ "{:,.2f}".format(alert.paid_amount or 0) }}</strong>
+                                <small>Pagado</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="alert-money-grid">
+                        <div>
+                            <span>Rubro</span>
+                            <strong>{{ alert.budget_item.item_code }} - {{ alert.budget_item.item_name }}</strong>
+                        </div>
+                        <div>
+                            <span>Presupuesto</span>
+                            <strong>${{ "{:,.2f}".format(alert.budget_amount or 0) }}</strong>
+                        </div>
+                        <div>
+                            <span>Pagado</span>
+                            <strong>${{ "{:,.2f}".format(alert.paid_amount or 0) }}</strong>
+                        </div>
+                        <div>
+                            <span>Pendiente</span>
+                            {% if (alert.remaining_amount or 0) < 0 %}
+                                <strong class="text-danger">-${{ "{:,.2f}".format((alert.remaining_amount or 0) * -1) }}</strong>
+                            {% else %}
+                                <strong>${{ "{:,.2f}".format(alert.remaining_amount or 0) }}</strong>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="alert-footer-row">
+                        <div class="alert-dates">
+                            <span>Creada: {{ alert.created_at.strftime('%d/%m/%Y %H:%M') if alert.created_at else 'N/A' }}</span>
+                            <span>Actualizada: {{ alert.updated_at.strftime('%d/%m/%Y %H:%M') if alert.updated_at else 'N/A' }}</span>
+                            {% if alert.resolved_at %}
+                                <span>Resuelta: {{ alert.resolved_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="alert-actions">
+                            <a href="{{ url_for('main.dashboard', budget_code=alert.budget_item.item_code) }}"
+                               class="btn btn-outline-secondary btn-sm">
+                                Ver dashboard
+                            </a>
+
+                            <a href="{{ url_for('registros.index', budget_item_id=alert.budget_item.id) }}"
+                               class="btn btn-outline-primary btn-sm">
+                                Ver registros
+                            </a>
+
+                            {% if alert.is_active and not alert.is_acknowledged %}
+                                <form method="POST" action="{{ url_for('alertas.marcar_revisada', alert_id=alert.id) }}">
+                                    <button type="submit" class="btn btn-success btn-sm">
+                                        Marcar revisada
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="panel empty-alerts-panel">
+            <i class="fa-solid fa-shield-heart"></i>
+            <h3>Sin alertas para estos filtros</h3>
+            <p>Todo tranquilo por aquí. El presupuesto no está gritando... por ahora.</p>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

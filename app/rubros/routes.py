@@ -1,11 +1,14 @@
+# app/rubros/routes.py
+
 from decimal import Decimal, InvalidOperation
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 from sqlalchemy import func
 
 from app.extensions import db
-from app.models import BudgetItem, Entry
+from app.models import BudgetAlert, BudgetItem, Entry
+from app.services.budget_alert_service import refresh_all_budget_alerts
 
 rubros_bp = Blueprint("rubros", __name__, url_prefix="/rubros")
 
@@ -48,18 +51,9 @@ def get_parent_code(item_code):
 
 
 def natural_code_key(item_code):
-    """
-    Convierte códigos como:
-    1 -> (1,)
-    1.1 -> (1, 1)
-    1.10 -> (1, 10)
-    10 -> (10,)
-    para ordenarlos jerárquicamente de forma natural.
-    """
     try:
         return tuple(int(part) for part in item_code.split("."))
     except ValueError:
-        # fallback por si algún código no es totalmente numérico
         return tuple(item_code.split("."))
 
 
@@ -68,16 +62,38 @@ def get_all_budget_items_sorted():
     return sorted(items, key=lambda x: natural_code_key(x.item_code))
 
 
+def get_direct_paid_for_item(item_id):
+    return (
+        db.session.query(func.coalesce(func.sum(Entry.amount), 0))
+        .filter(Entry.budget_item_id == item_id)
+        .scalar()
+    )
+
+
+def build_edit_impact_context(item):
+    if not item:
+        return None
+
+    direct_entries_count = Entry.query.filter(Entry.budget_item_id == item.id).count()
+    direct_paid = get_direct_paid_for_item(item.id)
+    children_count = BudgetItem.query.filter(BudgetItem.parent_id == item.id).count()
+    active_alerts_count = BudgetAlert.query.filter_by(budget_item_id=item.id, is_active=True).count()
+
+    return {
+        "direct_entries_count": direct_entries_count,
+        "direct_paid": float(direct_paid or 0),
+        "children_count": children_count,
+        "active_alerts_count": active_alerts_count,
+        "needs_confirmation": bool(direct_entries_count or children_count or active_alerts_count),
+    }
+
+
 def build_tree_rows():
     items = get_all_budget_items_sorted()
     rows = []
 
     for item in items:
-        paid_amount = (
-            db.session.query(func.coalesce(func.sum(Entry.amount), 0))
-            .filter(Entry.budget_item_id == item.id)
-            .scalar()
-        )
+        paid_amount = get_direct_paid_for_item(item.id)
 
         budget = float(item.budget_amount or 0)
         paid = float(paid_amount or 0)
@@ -107,7 +123,7 @@ def build_tree_rows():
             "remaining": remaining,
             "percentage": percentage,
             "children_budget_sum": children_budget_sum,
-            "is_budget_match": is_budget_match
+            "is_budget_match": is_budget_match,
         })
 
     return rows
@@ -147,7 +163,7 @@ def nuevo():
             if not parent:
                 flash(
                     f"No se puede crear {item_code} porque no existe su padre {parent_code}.",
-                    "danger"
+                    "danger",
                 )
                 return redirect(url_for("rubros.nuevo"))
 
@@ -157,17 +173,25 @@ def nuevo():
             parent_id=parent.id if parent else None,
             level=level,
             budget_amount=budget_amount,
-            is_active=True
+            is_active=True,
         )
 
         db.session.add(item)
+        db.session.flush()
+        refresh_all_budget_alerts()
         db.session.commit()
 
-        flash("Rubro registrado correctamente.", "success")
+        flash("Rubro registrado correctamente. Alertas presupuestales recalculadas.", "success")
         return redirect(url_for("rubros.index"))
 
     available_items = get_all_budget_items_sorted()
-    return render_template("rubros/form.html", item=None, modo="nuevo", available_items=available_items)
+    return render_template(
+        "rubros/form.html",
+        item=None,
+        modo="nuevo",
+        available_items=available_items,
+        impact_context=None,
+    )
 
 
 @rubros_bp.route("/editar/<int:item_id>", methods=["GET", "POST"])
@@ -187,7 +211,7 @@ def editar(item_id):
 
         existing = BudgetItem.query.filter(
             BudgetItem.item_code == item_code,
-            BudgetItem.id != item.id
+            BudgetItem.id != item.id,
         ).first()
 
         if existing:
@@ -204,7 +228,7 @@ def editar(item_id):
             if not parent:
                 flash(
                     f"No se puede guardar {item_code} porque no existe su padre {parent_code}.",
-                    "danger"
+                    "danger",
                 )
                 return redirect(url_for("rubros.editar", item_id=item.id))
 
@@ -220,20 +244,70 @@ def editar(item_id):
                     return redirect(url_for("rubros.editar", item_id=item.id))
                 current = current.parent
 
+        old_values = {
+            "item_code": item.item_code,
+            "parent_id": item.parent_id,
+            "budget_amount": Decimal(item.budget_amount or 0),
+            "is_active": item.is_active,
+        }
+
+        new_parent_id = parent.id if parent else None
+        changed_sensitive_data = any([
+            old_values["item_code"] != item_code,
+            old_values["parent_id"] != new_parent_id,
+            old_values["budget_amount"] != budget_amount,
+            old_values["is_active"] != is_active,
+        ])
+
+        impact_context = build_edit_impact_context(item)
+        confirmed = request.form.get("confirm_impact") == "1"
+
+        if changed_sensitive_data and impact_context and impact_context["needs_confirmation"] and not confirmed:
+            flash(
+                "Este rubro tiene registros, hijos o alertas activas. Confirma el impacto antes de guardar.",
+                "warning",
+            )
+            available_items = get_all_budget_items_sorted()
+            pending_values = {
+                "item_code": item_code,
+                "item_name": item_name,
+                "budget_amount": budget_amount,
+                "is_active": is_active,
+            }
+            return render_template(
+                "rubros/form.html",
+                item=item,
+                modo="editar",
+                available_items=available_items,
+                impact_context=impact_context,
+                pending_values=pending_values,
+                force_confirm=True,
+            )
+
         item.item_code = item_code
         item.item_name = item_name
-        item.parent_id = parent.id if parent else None
+        item.parent_id = new_parent_id
         item.level = level
         item.budget_amount = budget_amount
         item.is_active = is_active
 
+        db.session.flush()
+        refresh_all_budget_alerts()
         db.session.commit()
 
-        flash("Rubro actualizado correctamente.", "success")
+        flash("Rubro actualizado correctamente. Alertas presupuestales recalculadas.", "success")
         return redirect(url_for("rubros.index"))
 
     available_items = get_all_budget_items_sorted()
-    return render_template("rubros/form.html", item=item, modo="editar", available_items=available_items)
+    return render_template(
+        "rubros/form.html",
+        item=item,
+        modo="editar",
+        available_items=available_items,
+        impact_context=build_edit_impact_context(item),
+        pending_values=None,
+        force_confirm=False,
+    )
 
 
 @rubros_bp.route("/desactivar/<int:item_id>", methods=["POST"])
@@ -241,9 +315,11 @@ def editar(item_id):
 def desactivar(item_id):
     item = BudgetItem.query.get_or_404(item_id)
     item.is_active = False
+    db.session.flush()
+    refresh_all_budget_alerts()
     db.session.commit()
 
-    flash("Rubro desactivado correctamente.", "success")
+    flash("Rubro desactivado correctamente. Alertas presupuestales recalculadas.", "success")
     return redirect(url_for("rubros.index"))
 
 
@@ -252,7 +328,9 @@ def desactivar(item_id):
 def activar(item_id):
     item = BudgetItem.query.get_or_404(item_id)
     item.is_active = True
+    db.session.flush()
+    refresh_all_budget_alerts()
     db.session.commit()
 
-    flash("Rubro activado correctamente.", "success")
+    flash("Rubro activado correctamente. Alertas presupuestales recalculadas.", "success")
     return redirect(url_for("rubros.index"))

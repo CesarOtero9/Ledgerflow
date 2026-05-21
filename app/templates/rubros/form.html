@@ -8,13 +8,20 @@
     {% set subtitulo = "Actualiza número, nombre y presupuesto del rubro" %}
 {% endif %}
 
+{% set pending = pending_values if pending_values is defined and pending_values else {} %}
+
 {% block page_title %}{{ titulo }}{% endblock %}
 {% block page_subtitle %}{{ subtitulo }}{% endblock %}
 
 {% block content %}
 
 <div class="panel">
-    <form method="POST">
+    <form method="POST"
+          id="budgetItemForm"
+          data-impact-needed="{% if modo == 'editar' and impact_context and impact_context.needs_confirmation %}1{% else %}0{% endif %}"
+          data-force-confirm="{% if force_confirm is defined and force_confirm %}1{% else %}0{% endif %}">
+
+        <input type="hidden" name="confirm_impact" id="confirm_impact" value="{% if force_confirm is defined and force_confirm %}1{% else %}0{% endif %}">
 
         <div class="form-section-title">
             <h3>Datos del rubro</h3>
@@ -31,8 +38,38 @@
                 <li>Si capturas <strong>1.1.1</strong>, debe existir antes el <strong>1.1</strong>.</li>
                 <li>El sistema detecta automáticamente el padre y el nivel.</li>
                 <li>La suma de los hijos deberá coincidir con el presupuesto del padre.</li>
+                <li>Si este rubro tiene registros, hijos o alertas activas, LedgerFlow pedirá confirmación antes de aplicar cambios sensibles.</li>
             </ul>
         </div>
+
+        {% if modo == "editar" and impact_context and impact_context.needs_confirmation %}
+            <div class="impact-warning-card mb-4">
+                <h4><i class="fa-solid fa-triangle-exclamation"></i> Este rubro ya tiene impacto operativo</h4>
+                <p>
+                    Si cambias el presupuesto, código, padre o estatus, se recalcularán las alertas presupuestales.
+                    Los pagos existentes no se eliminan, pero el porcentaje usado puede cambiar.
+                </p>
+
+                <div class="impact-warning-grid">
+                    <div>
+                        <span>Registros directos</span>
+                        <strong>{{ impact_context.direct_entries_count }}</strong>
+                    </div>
+                    <div>
+                        <span>Pagado directo</span>
+                        <strong>${{ "{:,.2f}".format(impact_context.direct_paid) }}</strong>
+                    </div>
+                    <div>
+                        <span>Hijos</span>
+                        <strong>{{ impact_context.children_count }}</strong>
+                    </div>
+                    <div>
+                        <span>Alertas activas</span>
+                        <strong>{{ impact_context.active_alerts_count }}</strong>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
 
         <div class="row g-3">
             <div class="col-md-3">
@@ -41,7 +78,7 @@
                        name="item_code"
                        class="form-control"
                        placeholder="Ej. 1 o 1.1 o 1.1.1"
-                       value="{{ item.item_code if item else '' }}"
+                       value="{{ pending.item_code if pending.item_code is defined else (item.item_code if item else '') }}"
                        required>
             </div>
 
@@ -51,7 +88,7 @@
                        name="item_name"
                        class="form-control"
                        placeholder="Ej. INTERNET"
-                       value="{{ item.item_name if item else '' }}"
+                       value="{{ pending.item_name if pending.item_name is defined else (item.item_name if item else '') }}"
                        required>
             </div>
 
@@ -62,18 +99,19 @@
                        id="budget_amount"
                        class="form-control"
                        placeholder="$0.00"
-                       value="{% if item %}${{ '{:,.2f}'.format(item.budget_amount) }}{% endif %}"
+                       value="{% if pending.budget_amount is defined %}${{ '{:,.2f}'.format(pending.budget_amount) }}{% elif item %}${{ '{:,.2f}'.format(item.budget_amount) }}{% endif %}"
                        required>
             </div>
 
             {% if modo == "editar" %}
                 <div class="col-md-12">
                     <div class="form-check mt-2">
+                        {% set active_value = pending.is_active if pending.is_active is defined else item.is_active %}
                         <input class="form-check-input"
                                type="checkbox"
                                name="is_active"
                                id="is_active"
-                               {% if item.is_active %}checked{% endif %}>
+                               {% if active_value %}checked{% endif %}>
                         <label class="form-check-label" for="is_active">
                             Rubro activo
                         </label>
@@ -116,33 +154,58 @@
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const budgetInput = document.getElementById("budget_amount");
+        const form = document.getElementById("budgetItemForm");
+        const confirmImpact = document.getElementById("confirm_impact");
 
-        if (!budgetInput) return;
+        if (budgetInput) {
+            budgetInput.addEventListener("blur", function () {
+                let value = budgetInput.value;
 
-        budgetInput.addEventListener("blur", function () {
-            let value = budgetInput.value;
+                value = value.replace("$", "")
+                    .replaceAll(",", "")
+                    .replace("MXN", "")
+                    .trim();
 
-            value = value.replace("$", "")
-                .replaceAll(",", "")
-                .replace("MXN", "")
-                .trim();
+                if (value === "") {
+                    budgetInput.value = "";
+                    return;
+                }
 
-            if (value === "") {
-                budgetInput.value = "";
-                return;
-            }
+                const numberValue = Number(value);
 
-            const numberValue = Number(value);
+                if (isNaN(numberValue)) {
+                    return;
+                }
 
-            if (isNaN(numberValue)) {
-                return;
-            }
-
-            budgetInput.value = numberValue.toLocaleString("es-MX", {
-                style: "currency",
-                currency: "MXN"
+                budgetInput.value = numberValue.toLocaleString("es-MX", {
+                    style: "currency",
+                    currency: "MXN"
+                });
             });
-        });
+        }
+
+        if (form && confirmImpact) {
+            form.addEventListener("submit", function (event) {
+                const needsConfirmation = form.dataset.impactNeeded === "1";
+
+                if (!needsConfirmation || confirmImpact.value === "1") {
+                    return;
+                }
+
+                const message = [
+                    "Este rubro ya tiene registros, hijos o alertas activas.",
+                    "Si continúas, LedgerFlow recalculará alertas y porcentajes presupuestales.",
+                    "¿Deseas guardar los cambios?"
+                ].join("\n\n");
+
+                if (!window.confirm(message)) {
+                    event.preventDefault();
+                    return;
+                }
+
+                confirmImpact.value = "1";
+            });
+        }
     });
 </script>
 

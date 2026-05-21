@@ -27,6 +27,10 @@ from flask_login import login_required, current_user
 
 from app.extensions import db
 from app.models import Entry, Supplier, BudgetItem, EntryDocument
+from app.services.budget_alert_service import (
+    refresh_alerts_after_entry_change,
+    refresh_alerts_for_budget_item_ids,
+)
 
 
 registros_bp = Blueprint("registros", __name__, url_prefix="/registros")
@@ -685,6 +689,7 @@ def nuevo():
             db.session.flush()
 
             save_entry_documents_from_request(registro)
+            refresh_alerts_after_entry_change(new_budget_item_id=registro.budget_item_id)
 
             db.session.commit()
 
@@ -751,6 +756,7 @@ def editar(registro_id):
         month_number = application_date.month
         year = application_date.year
         month_name = MESES_ES[month_number]
+        old_budget_item_id = registro.budget_item_id
 
         try:
             registro.application_date = application_date
@@ -768,6 +774,10 @@ def editar(registro_id):
             registro.updated_at = datetime.utcnow()
 
             save_entry_documents_from_request(registro)
+            refresh_alerts_after_entry_change(
+                old_budget_item_id=old_budget_item_id,
+                new_budget_item_id=registro.budget_item_id,
+            )
 
             db.session.commit()
 
@@ -800,12 +810,15 @@ def editar(registro_id):
 def eliminar(registro_id):
     registro = Entry.query.get_or_404(registro_id)
 
+    old_budget_item_id = registro.budget_item_id
     documents = EntryDocument.query.filter_by(entry_id=registro.id).all()
 
     for document in documents:
         remove_document_file(document)
 
     db.session.delete(registro)
+    db.session.flush()
+    refresh_alerts_after_entry_change(old_budget_item_id=old_budget_item_id)
     db.session.commit()
 
     flash("Registro eliminado correctamente.", "success")
@@ -966,6 +979,8 @@ def importar_excel():
             return redirect(url_for("registros.importar_excel"))
 
         db.session.add_all(registros_a_crear)
+        db.session.flush()
+        refresh_alerts_for_budget_item_ids({registro.budget_item_id for registro in registros_a_crear})
         db.session.commit()
 
         flash(f"Se importaron {len(registros_a_crear)} registros correctamente.", "success")
